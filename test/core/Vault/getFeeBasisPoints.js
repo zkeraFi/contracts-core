@@ -5,6 +5,7 @@ const { expandDecimals, getBlockTime, increaseTime, mineBlock, reportGasUsed } =
 const { toChainlinkPrice } = require("../../shared/chainlink")
 const { toUsd, toNormalizedPrice } = require("../../shared/units")
 const { initVault, getBnbConfig, getBtcConfig, getDaiConfig, validateVaultBalance } = require("./helpers")
+const { priceFeedIds } = require("../../shared/pyth")
 
 use(solidity)
 
@@ -15,28 +16,30 @@ describe("Vault.getFeeBasisPoints", function () {
   let vaultPriceFeed
   let usdg
   let router
-  let bnb
-  let bnbPriceFeed
+  let eth
+  let ethPriceFeed
   let btc
   let btcPriceFeed
   let dai
   let daiPriceFeed
   let distributor0
   let yieldTracker0
+  let pyth
 
   beforeEach(async () => {
-    bnb = await deployContract("Token", [])
-    bnbPriceFeed = await deployContract("PriceFeed", [])
+    pyth = await deployContract("Pyth", [])
+    eth = await deployContract("Token", [])
+    ethPriceFeed = await deployContract("PythPriceFeedV2", [pyth.address,priceFeedIds.eth,10000])
 
     btc = await deployContract("Token", [])
-    btcPriceFeed = await deployContract("PriceFeed", [])
+    btcPriceFeed = await deployContract("PythPriceFeedV2", [pyth.address,priceFeedIds.btc,10000])
 
     dai = await deployContract("Token", [])
-    daiPriceFeed = await deployContract("PriceFeed", [])
+    daiPriceFeed = await deployContract("PythPriceFeedV2", [pyth.address,priceFeedIds.dai,10000])
 
     vault = await deployVault()
     usdg = await deployContract("USDG", [vault.address])
-    router = await deployContract("Router", [vault.address, usdg.address, bnb.address])
+    router = await deployContract("Router", [vault.address, usdg.address, eth.address,pyth.address])
     vaultPriceFeed = await deployVaultPriceFeed()
 
     await initVault(vault, router, usdg, vaultPriceFeed)
@@ -45,12 +48,12 @@ describe("Vault.getFeeBasisPoints", function () {
     yieldTracker0 = await deployContract("YieldTracker", [usdg.address])
 
     await yieldTracker0.setDistributor(distributor0.address)
-    await distributor0.setDistribution([yieldTracker0.address], [1000], [bnb.address])
+    await distributor0.setDistribution([yieldTracker0.address], [1000], [eth.address])
 
-    await bnb.mint(distributor0.address, 5000)
+    await eth.mint(distributor0.address, 5000)
     await usdg.setYieldTrackers([yieldTracker0.address])
 
-    await vaultPriceFeed.setTokenConfig(bnb.address, bnbPriceFeed.address, 8, false)
+    await vaultPriceFeed.setTokenConfig(eth.address, ethPriceFeed.address, 8, false)
     await vaultPriceFeed.setTokenConfig(btc.address, btcPriceFeed.address, 8, false)
     await vaultPriceFeed.setTokenConfig(dai.address, daiPriceFeed.address, 8, false)
 
@@ -68,97 +71,97 @@ describe("Vault.getFeeBasisPoints", function () {
   })
 
   it("getFeeBasisPoints", async () => {
-    await bnbPriceFeed.setLatestAnswer(toChainlinkPrice(300))
-    await vault.setTokenConfig(...getBnbConfig(bnb, bnbPriceFeed))
-    expect(await vault.getTargetUsdgAmount(bnb.address)).eq(0)
+    await pyth.updatePrice(priceFeedIds.eth, toChainlinkPrice(300))
+    await vault.setTokenConfig(...getBnbConfig(eth, ethPriceFeed))
+    expect(await vault.getTargetUsdgAmount(eth.address)).eq(0)
 
-    await bnb.mint(vault.address, 100)
-    await vault.connect(user0).buyUSDG(bnb.address, wallet.address)
+    await eth.mint(vault.address, 100)
+    await vault.connect(user0).buyUSDG(eth.address, wallet.address)
 
-    expect(await vault.usdgAmounts(bnb.address)).eq(29700)
-    expect(await vault.getTargetUsdgAmount(bnb.address)).eq(29700)
+    expect(await vault.usdgAmounts(eth.address)).eq(29700)
+    expect(await vault.getTargetUsdgAmount(eth.address)).eq(29700)
 
-    // usdgAmount(bnb) is 29700, targetAmount(bnb) is 29700
-    expect(await vault.getFeeBasisPoints(bnb.address, 1000, 100, 50, true)).eq(100)
-    expect(await vault.getFeeBasisPoints(bnb.address, 5000, 100, 50, true)).eq(104)
-    expect(await vault.getFeeBasisPoints(bnb.address, 1000, 100, 50, false)).eq(100)
-    expect(await vault.getFeeBasisPoints(bnb.address, 5000, 100, 50, false)).eq(104)
+    // usdgAmount(eth) is 29700, targetAmount(eth) is 29700
+    expect(await vault.getFeeBasisPoints(eth.address, 1000, 100, 50, true)).eq(100)
+    expect(await vault.getFeeBasisPoints(eth.address, 5000, 100, 50, true)).eq(104)
+    expect(await vault.getFeeBasisPoints(eth.address, 1000, 100, 50, false)).eq(100)
+    expect(await vault.getFeeBasisPoints(eth.address, 5000, 100, 50, false)).eq(104)
 
-    expect(await vault.getFeeBasisPoints(bnb.address, 1000, 50, 100, true)).eq(51)
-    expect(await vault.getFeeBasisPoints(bnb.address, 5000, 50, 100, true)).eq(58)
-    expect(await vault.getFeeBasisPoints(bnb.address, 1000, 50, 100, false)).eq(51)
-    expect(await vault.getFeeBasisPoints(bnb.address, 5000, 50, 100, false)).eq(58)
+    expect(await vault.getFeeBasisPoints(eth.address, 1000, 50, 100, true)).eq(51)
+    expect(await vault.getFeeBasisPoints(eth.address, 5000, 50, 100, true)).eq(58)
+    expect(await vault.getFeeBasisPoints(eth.address, 1000, 50, 100, false)).eq(51)
+    expect(await vault.getFeeBasisPoints(eth.address, 5000, 50, 100, false)).eq(58)
 
-    await daiPriceFeed.setLatestAnswer(toChainlinkPrice(1))
+    await pyth.updatePrice(priceFeedIds.dai, toChainlinkPrice(1))
     await vault.setTokenConfig(...getDaiConfig(dai, daiPriceFeed))
 
-    expect(await vault.getTargetUsdgAmount(bnb.address)).eq(14850)
+    expect(await vault.getTargetUsdgAmount(eth.address)).eq(14850)
     expect(await vault.getTargetUsdgAmount(dai.address)).eq(14850)
 
-    // usdgAmount(bnb) is 29700, targetAmount(bnb) is 14850
-    // incrementing bnb has an increased fee, while reducing bnb has a decreased fee
-    expect(await vault.getFeeBasisPoints(bnb.address, 1000, 100, 50, true)).eq(150)
-    expect(await vault.getFeeBasisPoints(bnb.address, 5000, 100, 50, true)).eq(150)
-    expect(await vault.getFeeBasisPoints(bnb.address, 10000, 100, 50, true)).eq(150)
-    expect(await vault.getFeeBasisPoints(bnb.address, 20000, 100, 50, true)).eq(150)
-    expect(await vault.getFeeBasisPoints(bnb.address, 1000, 100, 50, false)).eq(50)
-    expect(await vault.getFeeBasisPoints(bnb.address, 5000, 100, 50, false)).eq(50)
-    expect(await vault.getFeeBasisPoints(bnb.address, 10000, 100, 50, false)).eq(50)
-    expect(await vault.getFeeBasisPoints(bnb.address, 20000, 100, 50, false)).eq(50)
-    expect(await vault.getFeeBasisPoints(bnb.address, 25000, 100, 50, false)).eq(50)
-    expect(await vault.getFeeBasisPoints(bnb.address, 100000, 100, 50, false)).eq(150)
+    // usdgAmount(eth) is 29700, targetAmount(eth) is 14850
+    // incrementing eth has an increased fee, while reducing eth has a decreased fee
+    expect(await vault.getFeeBasisPoints(eth.address, 1000, 100, 50, true)).eq(150)
+    expect(await vault.getFeeBasisPoints(eth.address, 5000, 100, 50, true)).eq(150)
+    expect(await vault.getFeeBasisPoints(eth.address, 10000, 100, 50, true)).eq(150)
+    expect(await vault.getFeeBasisPoints(eth.address, 20000, 100, 50, true)).eq(150)
+    expect(await vault.getFeeBasisPoints(eth.address, 1000, 100, 50, false)).eq(50)
+    expect(await vault.getFeeBasisPoints(eth.address, 5000, 100, 50, false)).eq(50)
+    expect(await vault.getFeeBasisPoints(eth.address, 10000, 100, 50, false)).eq(50)
+    expect(await vault.getFeeBasisPoints(eth.address, 20000, 100, 50, false)).eq(50)
+    expect(await vault.getFeeBasisPoints(eth.address, 25000, 100, 50, false)).eq(50)
+    expect(await vault.getFeeBasisPoints(eth.address, 100000, 100, 50, false)).eq(150)
 
     await dai.mint(vault.address, 20000)
     await vault.connect(user0).buyUSDG(dai.address, wallet.address)
 
-    expect(await vault.getTargetUsdgAmount(bnb.address)).eq(24850)
+    expect(await vault.getTargetUsdgAmount(eth.address)).eq(24850)
     expect(await vault.getTargetUsdgAmount(dai.address)).eq(24850)
 
-    const bnbConfig = getBnbConfig(bnb, bnbPriceFeed)
-    bnbConfig[2] = 30000
-    await vault.setTokenConfig(...bnbConfig)
+    const ethConfig = getBnbConfig(eth, ethPriceFeed)
+    ethConfig[2] = 30000
+    await vault.setTokenConfig(...ethConfig)
 
-    expect(await vault.getTargetUsdgAmount(bnb.address)).eq(37275)
+    expect(await vault.getTargetUsdgAmount(eth.address)).eq(37275)
     expect(await vault.getTargetUsdgAmount(dai.address)).eq(12425)
 
-    expect(await vault.usdgAmounts(bnb.address)).eq(29700)
+    expect(await vault.usdgAmounts(eth.address)).eq(29700)
 
-    // usdgAmount(bnb) is 29700, targetAmount(bnb) is 37270
-    // incrementing bnb has a decreased fee, while reducing bnb has an increased fee
-    expect(await vault.getFeeBasisPoints(bnb.address, 1000, 100, 50, true)).eq(90)
-    expect(await vault.getFeeBasisPoints(bnb.address, 5000, 100, 50, true)).eq(90)
-    expect(await vault.getFeeBasisPoints(bnb.address, 10000, 100, 50, true)).eq(90)
-    expect(await vault.getFeeBasisPoints(bnb.address, 1000, 100, 50, false)).eq(110)
-    expect(await vault.getFeeBasisPoints(bnb.address, 5000, 100, 50, false)).eq(113)
-    expect(await vault.getFeeBasisPoints(bnb.address, 10000, 100, 50, false)).eq(116)
+    // usdgAmount(eth) is 29700, targetAmount(eth) is 37270
+    // incrementing eth has a decreased fee, while reducing eth has an increased fee
+    expect(await vault.getFeeBasisPoints(eth.address, 1000, 100, 50, true)).eq(90)
+    expect(await vault.getFeeBasisPoints(eth.address, 5000, 100, 50, true)).eq(90)
+    expect(await vault.getFeeBasisPoints(eth.address, 10000, 100, 50, true)).eq(90)
+    expect(await vault.getFeeBasisPoints(eth.address, 1000, 100, 50, false)).eq(110)
+    expect(await vault.getFeeBasisPoints(eth.address, 5000, 100, 50, false)).eq(113)
+    expect(await vault.getFeeBasisPoints(eth.address, 10000, 100, 50, false)).eq(116)
 
-    bnbConfig[2] = 5000
-    await vault.setTokenConfig(...bnbConfig)
+    ethConfig[2] = 5000
+    await vault.setTokenConfig(...ethConfig)
 
-    await bnb.mint(vault.address, 200)
-    await vault.connect(user0).buyUSDG(bnb.address, wallet.address)
+    await eth.mint(vault.address, 200)
+    await vault.connect(user0).buyUSDG(eth.address, wallet.address)
 
-    expect(await vault.usdgAmounts(bnb.address)).eq(89100)
-    expect(await vault.getTargetUsdgAmount(bnb.address)).eq(36366)
+    expect(await vault.usdgAmounts(eth.address)).eq(89100)
+    expect(await vault.getTargetUsdgAmount(eth.address)).eq(36366)
     expect(await vault.getTargetUsdgAmount(dai.address)).eq(72733)
 
-    // usdgAmount(bnb) is 88800, targetAmount(bnb) is 36266
-    // incrementing bnb has an increased fee, while reducing bnb has a decreased fee
-    expect(await vault.getFeeBasisPoints(bnb.address, 1000, 100, 50, true)).eq(150)
-    expect(await vault.getFeeBasisPoints(bnb.address, 5000, 100, 50, true)).eq(150)
-    expect(await vault.getFeeBasisPoints(bnb.address, 10000, 100, 50, true)).eq(150)
-    expect(await vault.getFeeBasisPoints(bnb.address, 1000, 100, 50, false)).eq(28)
-    expect(await vault.getFeeBasisPoints(bnb.address, 5000, 100, 50, false)).eq(28)
-    expect(await vault.getFeeBasisPoints(bnb.address, 20000, 100, 50, false)).eq(28)
-    expect(await vault.getFeeBasisPoints(bnb.address, 50000, 100, 50, false)).eq(28)
-    expect(await vault.getFeeBasisPoints(bnb.address, 80000, 100, 50, false)).eq(28)
+    // usdgAmount(eth) is 88800, targetAmount(eth) is 36266
+    // incrementing eth has an increased fee, while reducing eth has a decreased fee
+    expect(await vault.getFeeBasisPoints(eth.address, 1000, 100, 50, true)).eq(150)
+    expect(await vault.getFeeBasisPoints(eth.address, 5000, 100, 50, true)).eq(150)
+    expect(await vault.getFeeBasisPoints(eth.address, 10000, 100, 50, true)).eq(150)
+    expect(await vault.getFeeBasisPoints(eth.address, 1000, 100, 50, false)).eq(28)
+    expect(await vault.getFeeBasisPoints(eth.address, 5000, 100, 50, false)).eq(28)
+    expect(await vault.getFeeBasisPoints(eth.address, 20000, 100, 50, false)).eq(28)
+    expect(await vault.getFeeBasisPoints(eth.address, 50000, 100, 50, false)).eq(28)
+    expect(await vault.getFeeBasisPoints(eth.address, 80000, 100, 50, false)).eq(28)
 
-    expect(await vault.getFeeBasisPoints(bnb.address, 1000, 50, 100, true)).eq(150)
-    expect(await vault.getFeeBasisPoints(bnb.address, 5000, 50, 100, true)).eq(150)
-    expect(await vault.getFeeBasisPoints(bnb.address, 10000, 50, 100, true)).eq(150)
-    expect(await vault.getFeeBasisPoints(bnb.address, 1000, 50, 100, false)).eq(0)
-    expect(await vault.getFeeBasisPoints(bnb.address, 5000, 50, 100, false)).eq(0)
-    expect(await vault.getFeeBasisPoints(bnb.address, 20000, 50, 100, false)).eq(0)
-    expect(await vault.getFeeBasisPoints(bnb.address, 50000, 50, 100, false)).eq(0)
+    expect(await vault.getFeeBasisPoints(eth.address, 1000, 50, 100, true)).eq(150)
+    expect(await vault.getFeeBasisPoints(eth.address, 5000, 50, 100, true)).eq(150)
+    expect(await vault.getFeeBasisPoints(eth.address, 10000, 50, 100, true)).eq(150)
+    expect(await vault.getFeeBasisPoints(eth.address, 1000, 50, 100, false)).eq(0)
+    expect(await vault.getFeeBasisPoints(eth.address, 5000, 50, 100, false)).eq(0)
+    expect(await vault.getFeeBasisPoints(eth.address, 20000, 50, 100, false)).eq(0)
+    expect(await vault.getFeeBasisPoints(eth.address, 50000, 50, 100, false)).eq(0)
   })
 })

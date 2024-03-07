@@ -48,6 +48,7 @@
     "bn.js": "^5.2.0",
     "csv-parse": "^4.16.3",
     "dotenv": "^16.0.3",
-    "hardhat-abi-exporter": "^2.10.1"
+    "hardhat-abi-exporter": "^2.10.1",
+    "solidity-coverage": "^0.8.10"
   }
 }

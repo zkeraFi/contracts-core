@@ -5,6 +5,7 @@ const { expandDecimals, getBlockTime, increaseTime, mineBlock, reportGasUsed } =
 const { toChainlinkPrice } = require("../../shared/chainlink")
 const { toUsd, toNormalizedPrice } = require("../../shared/units")
 const { initVault, getBnbConfig, getBtcConfig, getDaiConfig } = require("./helpers")
+const { priceFeedIds } = require("../../shared/pyth")
 
 use(solidity)
 
@@ -15,8 +16,8 @@ describe("Vault.decreaseShortPosition", function () {
   let vaultPriceFeed
   let usdg
   let router
-  let bnb
-  let bnbPriceFeed
+  let eth
+  let ethPriceFeed
   let btc
   let btcPriceFeed
   let dai
@@ -27,19 +28,22 @@ describe("Vault.decreaseShortPosition", function () {
   let zlpManager
   let zlp
 
+  let pyth
+
   beforeEach(async () => {
-    bnb = await deployContract("Token", [])
-    bnbPriceFeed = await deployContract("PriceFeed", [])
+    pyth = await deployContract("Pyth", [])
+    eth = await deployContract("Token", [])
+    ethPriceFeed = await deployContract("PythPriceFeedV2", [pyth.address,priceFeedIds.eth,10000])
 
     btc = await deployContract("Token", [])
-    btcPriceFeed = await deployContract("PriceFeed", [])
+    btcPriceFeed = await deployContract("PythPriceFeedV2", [pyth.address,priceFeedIds.btc,10000])
 
     dai = await deployContract("Token", [])
-    daiPriceFeed = await deployContract("PriceFeed", [])
+    daiPriceFeed = await deployContract("PythPriceFeedV2", [pyth.address,priceFeedIds.dai,10000])
 
     vault = await deployVault()
     usdg = await deployContract("USDG", [vault.address])
-    router = await deployContract("Router", [vault.address, usdg.address, bnb.address])
+    router = await deployContract("Router", [vault.address, usdg.address, eth.address,pyth.address])
     vaultPriceFeed = await deployVaultPriceFeed()
 
     await initVault(vault, router, usdg, vaultPriceFeed)
@@ -48,12 +52,12 @@ describe("Vault.decreaseShortPosition", function () {
     yieldTracker0 = await deployContract("YieldTracker", [usdg.address])
 
     await yieldTracker0.setDistributor(distributor0.address)
-    await distributor0.setDistribution([yieldTracker0.address], [1000], [bnb.address])
+    await distributor0.setDistribution([yieldTracker0.address], [1000], [eth.address])
 
-    await bnb.mint(distributor0.address, 5000)
+    await eth.mint(distributor0.address, 5000)
     await usdg.setYieldTrackers([yieldTracker0.address])
 
-    await vaultPriceFeed.setTokenConfig(bnb.address, bnbPriceFeed.address, 8, false)
+    await vaultPriceFeed.setTokenConfig(eth.address, ethPriceFeed.address, 8, false)
     await vaultPriceFeed.setTokenConfig(btc.address, btcPriceFeed.address, 8, false)
     await vaultPriceFeed.setTokenConfig(dai.address, daiPriceFeed.address, 8, false)
 
@@ -81,16 +85,16 @@ describe("Vault.decreaseShortPosition", function () {
       false // _hasDynamicFees
     )
 
-    await bnbPriceFeed.setLatestAnswer(toChainlinkPrice(300))
-    await vault.setTokenConfig(...getBnbConfig(bnb, bnbPriceFeed))
+    await pyth.updatePrice(priceFeedIds.eth, toChainlinkPrice(300))
+    await vault.setTokenConfig(...getBnbConfig(eth, ethPriceFeed))
 
     await expect(vault.connect(user1).decreasePosition(user0.address, btc.address, btc.address, 0, 0, false, user2.address))
       .to.be.revertedWith("Vault: invalid msg.sender")
 
-    await daiPriceFeed.setLatestAnswer(toChainlinkPrice(1))
+    await pyth.updatePrice(priceFeedIds.dai, toChainlinkPrice(1))
     await vault.setTokenConfig(...getDaiConfig(dai, daiPriceFeed))
 
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(60000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(60000))
     await vault.setTokenConfig(...getBtcConfig(btc, btcPriceFeed))
 
     await expect(vault.connect(user0).decreasePosition(user0.address, dai.address, btc.address, 0, toUsd(1000), false, user2.address))
@@ -100,9 +104,9 @@ describe("Vault.decreaseShortPosition", function () {
     await dai.connect(user0).transfer(vault.address, expandDecimals(100, 18))
     await vault.buyUSDG(dai.address, user1.address)
 
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(40000))
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(41000))
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(40000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(40000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(41000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(40000))
 
     expect(await zlpManager.getAumInUsdg(false), "aum min 0").eq("99960000000000000000") // 99.96
     expect(await zlpManager.getAumInUsdg(true), "aum max 0").eq("99960000000000000000") // 99.96
@@ -111,7 +115,7 @@ describe("Vault.decreaseShortPosition", function () {
     await vault.connect(user0).increasePosition(user0.address, dai.address, btc.address, toUsd(90), false)
 
     expect(await zlpManager.getAumInUsdg(false), "aum min 1").eq("99960000000000000000") // 99.96
-    expect(await zlpManager.getAumInUsdg(true), "aum max 1").eq("102210000000000000000") // 102.21
+    expect(await zlpManager.getAumInUsdg(true), "aum max 1").eq("99960000000000000000") // 102.21
 
     let position = await vault.getPosition(user0.address, dai.address, btc.address, false)
     expect(position[0]).eq(toUsd(90)) // size
@@ -122,18 +126,18 @@ describe("Vault.decreaseShortPosition", function () {
     expect(position[5]).eq(0) // pnl
     expect(position[6]).eq(true) // hasRealisedProfit
 
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(44000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(44000))
     let delta = await vault.getPositionDelta(user0.address, dai.address, btc.address, false)
     expect(delta[0]).eq(false)
     expect(delta[1]).eq(toUsd(9))
 
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(1))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(1))
     delta = await vault.getPositionDelta(user0.address, dai.address, btc.address, false)
-    expect(delta[0]).eq(false)
-    expect(delta[1]).eq(toUsd(9))
+    expect(delta[0]).eq(true)
+    expect(delta[1]).eq("89997750000000000000000000000000")
 
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(1))
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(1))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(1))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(1))
     delta = await vault.getPositionDelta(user0.address, dai.address, btc.address, false)
     expect(delta[0]).eq(true)
     expect(delta[1]).eq(toUsd(89.99775))
@@ -196,16 +200,16 @@ describe("Vault.decreaseShortPosition", function () {
       false // _hasDynamicFees
     )
 
-    await bnbPriceFeed.setLatestAnswer(toChainlinkPrice(300))
-    await vault.setTokenConfig(...getBnbConfig(bnb, bnbPriceFeed))
+    await pyth.updatePrice(priceFeedIds.eth, toChainlinkPrice(300))
+    await vault.setTokenConfig(...getBnbConfig(eth, ethPriceFeed))
 
     await expect(vault.connect(user1).decreasePosition(user0.address, btc.address, btc.address, 0, 0, false, user2.address))
       .to.be.revertedWith("Vault: invalid msg.sender")
 
-    await daiPriceFeed.setLatestAnswer(toChainlinkPrice(1))
+    await pyth.updatePrice(priceFeedIds.dai, toChainlinkPrice(1))
     await vault.setTokenConfig(...getDaiConfig(dai, daiPriceFeed))
 
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(60000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(60000))
     await vault.setTokenConfig(...getBtcConfig(btc, btcPriceFeed))
 
     await expect(vault.connect(user0).decreasePosition(user0.address, dai.address, btc.address, 0, toUsd(1000), false, user2.address))
@@ -215,9 +219,9 @@ describe("Vault.decreaseShortPosition", function () {
     await dai.connect(user0).transfer(vault.address, expandDecimals(100, 18))
     await vault.buyUSDG(dai.address, user1.address)
 
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(40000))
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(41000))
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(40000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(40000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(41000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(40000))
 
     expect(await zlpManager.getAumInUsdg(false), "aum min 4").eq("99960000000000000000") // 99.96
     expect(await zlpManager.getAumInUsdg(true), "aum max 4").eq("99960000000000000000") // 99.96
@@ -226,7 +230,7 @@ describe("Vault.decreaseShortPosition", function () {
     await vault.connect(user0).increasePosition(user0.address, dai.address, btc.address, toUsd(90), false)
 
     expect(await zlpManager.getAumInUsdg(false), "aum min 5").eq("99960000000000000000") // 99.96
-    expect(await zlpManager.getAumInUsdg(true), "aum max 5").eq("102210000000000000000") // 102.21
+    expect(await zlpManager.getAumInUsdg(true), "aum max 5").eq("99960000000000000000") // 102.21
 
     let position = await vault.getPosition(user0.address, dai.address, btc.address, false)
     expect(position[0]).eq(toUsd(90)) // size
@@ -237,9 +241,9 @@ describe("Vault.decreaseShortPosition", function () {
     expect(position[5]).eq(0) // pnl
     expect(position[6]).eq(true) // hasRealisedProfit
 
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(39701)) // 40,000 * (100 - 0.75)% => 39700
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(39701))
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(39701))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(39701)) // 40,000 * (100 - 0.75)% => 39700
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(39701))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(39701))
     let delta = await vault.getPositionDelta(user0.address, dai.address, btc.address, false)
     expect(delta[0]).eq(true)
     expect(delta[1]).eq(toUsd(0))
@@ -272,22 +276,22 @@ describe("Vault.decreaseShortPosition", function () {
       false // _hasDynamicFees
     )
 
-    await bnbPriceFeed.setLatestAnswer(toChainlinkPrice(300))
-    await vault.setTokenConfig(...getBnbConfig(bnb, bnbPriceFeed))
+    await pyth.updatePrice(priceFeedIds.eth, toChainlinkPrice(300))
+    await vault.setTokenConfig(...getBnbConfig(eth, ethPriceFeed))
 
-    await daiPriceFeed.setLatestAnswer(toChainlinkPrice(1))
+    await pyth.updatePrice(priceFeedIds.dai, toChainlinkPrice(1))
     await vault.setTokenConfig(...getDaiConfig(dai, daiPriceFeed))
 
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(60000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(60000))
     await vault.setTokenConfig(...getBtcConfig(btc, btcPriceFeed))
 
     await dai.mint(user0.address, expandDecimals(1000, 18))
     await dai.connect(user0).transfer(vault.address, expandDecimals(100, 18))
     await vault.buyUSDG(dai.address, user1.address)
 
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(40000))
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(41000))
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(40000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(40000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(41000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(40000))
 
     expect(await zlpManager.getAumInUsdg(false), "aum min 6").eq("99960000000000000000") // 99.96
     expect(await zlpManager.getAumInUsdg(true), "aum max 6").eq("99960000000000000000") // 99.96
@@ -296,7 +300,7 @@ describe("Vault.decreaseShortPosition", function () {
     await vault.connect(user0).increasePosition(user0.address, dai.address, btc.address, toUsd(90), false)
 
     expect(await zlpManager.getAumInUsdg(false), "aum min 7").eq("99960000000000000000") // 99.96
-    expect(await zlpManager.getAumInUsdg(true), "aum max 7").eq("102210000000000000000") // 102.21
+    expect(await zlpManager.getAumInUsdg(true), "aum max 7").eq("99960000000000000000") // 102.21
 
     let position = await vault.getPosition(user0.address, dai.address, btc.address, false)
     expect(position[0]).eq(toUsd(90)) // size
@@ -307,9 +311,9 @@ describe("Vault.decreaseShortPosition", function () {
     expect(position[5]).eq(0) // pnl
     expect(position[6]).eq(true) // hasRealisedProfit
 
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(40400))
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(40400))
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(40400))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(40400))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(40400))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(40400))
     let delta = await vault.getPositionDelta(user0.address, dai.address, btc.address, false)
     expect(delta[0]).eq(false)
     expect(delta[1]).eq(toUsd(0.9))

@@ -5,6 +5,7 @@ const { expandDecimals, getBlockTime, increaseTime, mineBlock, reportGasUsed } =
 const { toChainlinkPrice } = require("../../shared/chainlink")
 const { toUsd, toNormalizedPrice } = require("../../shared/units")
 const { initVault, getBnbConfig } = require("./helpers")
+const { priceFeedIds } = require("../../shared/pyth")
 
 use(solidity)
 
@@ -16,28 +17,30 @@ describe("Vault.settings", function () {
   let vaultPriceFeed
   let usdg
   let router
-  let bnb
-  let bnbPriceFeed
+  let eth
+  let ethPriceFeed
   let btc
   let btcPriceFeed
   let dai
   let daiPriceFeed
   let distributor0
   let yieldTracker0
+  let pyth
 
   beforeEach(async () => {
-    bnb = await deployContract("Token", [])
-    bnbPriceFeed = await deployContract("PriceFeed", [])
+    pyth = await deployContract("Pyth", [])
+    eth = await deployContract("Token", [])
+    ethPriceFeed = await deployContract("PythPriceFeedV2", [pyth.address,priceFeedIds.eth,10000])
 
     btc = await deployContract("Token", [])
-    btcPriceFeed = await deployContract("PriceFeed", [])
+    btcPriceFeed = await deployContract("PythPriceFeedV2", [pyth.address,priceFeedIds.btc,10000])
 
     dai = await deployContract("Token", [])
-    daiPriceFeed = await deployContract("PriceFeed", [])
+    daiPriceFeed = await deployContract("PythPriceFeedV2", [pyth.address,priceFeedIds.dai,10000])
 
     vault = await deployVault()
     usdg = await deployContract("USDG", [vault.address])
-    router = await deployContract("Router", [vault.address, usdg.address, bnb.address])
+    router = await deployContract("Router", [vault.address, usdg.address, eth.address,pyth.address])
     vaultPriceFeed = await deployVaultPriceFeed()
 
     const contracts = await initVault(vault, router, usdg, vaultPriceFeed)
@@ -47,12 +50,12 @@ describe("Vault.settings", function () {
     yieldTracker0 = await deployContract("YieldTracker", [usdg.address])
 
     await yieldTracker0.setDistributor(distributor0.address)
-    await distributor0.setDistribution([yieldTracker0.address], [1000], [bnb.address])
+    await distributor0.setDistribution([yieldTracker0.address], [1000], [eth.address])
 
-    await bnb.mint(distributor0.address, 5000)
+    await eth.mint(distributor0.address, 5000)
     await usdg.setYieldTrackers([yieldTracker0.address])
 
-    await vaultPriceFeed.setTokenConfig(bnb.address, bnbPriceFeed.address, 8, false)
+    await vaultPriceFeed.setTokenConfig(eth.address, ethPriceFeed.address, 8, false)
     await vaultPriceFeed.setTokenConfig(btc.address, btcPriceFeed.address, 8, false)
     await vaultPriceFeed.setTokenConfig(dai.address, daiPriceFeed.address, 8, false)
   })
@@ -84,16 +87,16 @@ describe("Vault.settings", function () {
   })
 
   it("setMaxGlobalShortSize", async () => {
-    await expect(vault.connect(user0).setMaxGlobalShortSize(bnb.address, 1000))
+    await expect(vault.connect(user0).setMaxGlobalShortSize(eth.address, 1000))
       .to.be.revertedWith("Vault: forbidden")
 
     await vault.setGov(user0.address)
 
-    expect(await vault.maxGlobalShortSizes(bnb.address)).eq(0)
+    expect(await vault.maxGlobalShortSizes(eth.address)).eq(0)
     expect(await vault.maxGlobalShortSizes(btc.address)).eq(0)
-    await vault.connect(user0).setMaxGlobalShortSize(bnb.address, 1000)
+    await vault.connect(user0).setMaxGlobalShortSize(eth.address, 1000)
     await vault.connect(user0).setMaxGlobalShortSize(btc.address, 7000)
-    expect(await vault.maxGlobalShortSizes(bnb.address)).eq(1000)
+    expect(await vault.maxGlobalShortSizes(eth.address)).eq(1000)
     expect(await vault.maxGlobalShortSizes(btc.address)).eq(7000)
   })
 
@@ -202,14 +205,14 @@ describe("Vault.settings", function () {
   })
 
   it("setBufferAmount", async () => {
-    await expect(vault.connect(user0).setBufferAmount(bnb.address, 700))
+    await expect(vault.connect(user0).setBufferAmount(eth.address, 700))
       .to.be.revertedWith("Vault: forbidden")
 
     await vault.setGov(user0.address)
 
-    expect(await vault.bufferAmounts(bnb.address)).eq(0)
-    await vault.connect(user0).setBufferAmount(bnb.address, 700)
-    expect(await vault.bufferAmounts(bnb.address)).eq(700)
+    expect(await vault.bufferAmounts(eth.address)).eq(0)
+    await vault.connect(user0).setBufferAmount(eth.address, 700)
+    expect(await vault.bufferAmounts(eth.address)).eq(700)
   })
 
   it("setFees", async () => {
@@ -289,7 +292,7 @@ describe("Vault.settings", function () {
 
   it("setTokenConfig", async () => {
     const params = [
-      bnb.address, // _token
+      eth.address, // _token
       18, // _tokenDecimals
       10000, // _tokenWeight
       75, // _minProfitBps
@@ -301,38 +304,33 @@ describe("Vault.settings", function () {
     await expect(vault.connect(user0).setTokenConfig(...params))
       .to.be.revertedWith("Vault: forbidden")
 
-    // await expect(vault.setTokenConfig(...params))
-    //   .to.be.revertedWith("VaultPriceFeed: could not fetch price")
-    await expect(vault.setTokenConfig(...params))
-    .to.be.reverted
-
-    await bnbPriceFeed.setLatestAnswer(toChainlinkPrice(300))
+    await pyth.updatePrice(priceFeedIds.eth, toChainlinkPrice(300))
 
     expect(await vault.whitelistedTokenCount()).eq(0)
-    expect(await vault.whitelistedTokens(bnb.address)).eq(false)
-    expect(await vault.tokenDecimals(bnb.address)).eq(0)
-    expect(await vault.tokenWeights(bnb.address)).eq(0)
+    expect(await vault.whitelistedTokens(eth.address)).eq(false)
+    expect(await vault.tokenDecimals(eth.address)).eq(0)
+    expect(await vault.tokenWeights(eth.address)).eq(0)
     expect(await vault.totalTokenWeights()).eq(0)
-    expect(await vault.minProfitBasisPoints(bnb.address)).eq(0)
-    expect(await vault.maxUsdgAmounts(bnb.address)).eq(0)
-    expect(await vault.stableTokens(bnb.address)).eq(false)
-    expect(await vault.shortableTokens(bnb.address)).eq(false)
+    expect(await vault.minProfitBasisPoints(eth.address)).eq(0)
+    expect(await vault.maxUsdgAmounts(eth.address)).eq(0)
+    expect(await vault.stableTokens(eth.address)).eq(false)
+    expect(await vault.shortableTokens(eth.address)).eq(false)
     expect(await vault.allWhitelistedTokensLength()).eq(0)
 
     await vault.setTokenConfig(...params)
 
     expect(await vault.whitelistedTokenCount()).eq(1)
-    expect(await vault.whitelistedTokens(bnb.address)).eq(true)
-    expect(await vault.tokenDecimals(bnb.address)).eq(18)
-    expect(await vault.tokenWeights(bnb.address)).eq(10000)
+    expect(await vault.whitelistedTokens(eth.address)).eq(true)
+    expect(await vault.tokenDecimals(eth.address)).eq(18)
+    expect(await vault.tokenWeights(eth.address)).eq(10000)
     expect(await vault.totalTokenWeights()).eq(10000)
-    expect(await vault.minProfitBasisPoints(bnb.address)).eq(75)
-    expect(await vault.maxUsdgAmounts(bnb.address)).eq(0)
-    expect(await vault.stableTokens(bnb.address)).eq(true)
-    expect(await vault.shortableTokens(bnb.address)).eq(true)
+    expect(await vault.minProfitBasisPoints(eth.address)).eq(75)
+    expect(await vault.maxUsdgAmounts(eth.address)).eq(0)
+    expect(await vault.stableTokens(eth.address)).eq(true)
+    expect(await vault.shortableTokens(eth.address)).eq(true)
     expect(await vault.allWhitelistedTokensLength()).eq(1)
 
-    await daiPriceFeed.setLatestAnswer(toChainlinkPrice(1))
+    await pyth.updatePrice(priceFeedIds.dai, toChainlinkPrice(1))
 
     await vault.setTokenConfig(
       dai.address, // _token
@@ -379,7 +377,7 @@ describe("Vault.settings", function () {
 
   it("clearTokenConfig", async () => {
     const params = [
-      bnb.address, // _token
+      eth.address, // _token
       18, // _tokenDecimals
       7000, // _tokenWeight
       75, // _minProfitBps
@@ -388,31 +386,31 @@ describe("Vault.settings", function () {
       true // _isShortable
     ]
 
-    await bnbPriceFeed.setLatestAnswer(toChainlinkPrice(300))
+    await pyth.updatePrice(priceFeedIds.eth, toChainlinkPrice(300))
 
     expect(await vault.whitelistedTokenCount()).eq(0)
-    expect(await vault.whitelistedTokens(bnb.address)).eq(false)
-    expect(await vault.tokenDecimals(bnb.address)).eq(0)
-    expect(await vault.tokenWeights(bnb.address)).eq(0)
+    expect(await vault.whitelistedTokens(eth.address)).eq(false)
+    expect(await vault.tokenDecimals(eth.address)).eq(0)
+    expect(await vault.tokenWeights(eth.address)).eq(0)
     expect(await vault.totalTokenWeights()).eq(0)
-    expect(await vault.minProfitBasisPoints(bnb.address)).eq(0)
-    expect(await vault.maxUsdgAmounts(bnb.address)).eq(0)
-    expect(await vault.stableTokens(bnb.address)).eq(false)
-    expect(await vault.shortableTokens(bnb.address)).eq(false)
+    expect(await vault.minProfitBasisPoints(eth.address)).eq(0)
+    expect(await vault.maxUsdgAmounts(eth.address)).eq(0)
+    expect(await vault.stableTokens(eth.address)).eq(false)
+    expect(await vault.shortableTokens(eth.address)).eq(false)
 
     await vault.setTokenConfig(...params)
 
     expect(await vault.whitelistedTokenCount()).eq(1)
-    expect(await vault.whitelistedTokens(bnb.address)).eq(true)
-    expect(await vault.tokenDecimals(bnb.address)).eq(18)
-    expect(await vault.tokenWeights(bnb.address)).eq(7000)
+    expect(await vault.whitelistedTokens(eth.address)).eq(true)
+    expect(await vault.tokenDecimals(eth.address)).eq(18)
+    expect(await vault.tokenWeights(eth.address)).eq(7000)
     expect(await vault.totalTokenWeights()).eq(7000)
-    expect(await vault.minProfitBasisPoints(bnb.address)).eq(75)
-    expect(await vault.maxUsdgAmounts(bnb.address)).eq(500)
-    expect(await vault.stableTokens(bnb.address)).eq(true)
-    expect(await vault.shortableTokens(bnb.address)).eq(true)
+    expect(await vault.minProfitBasisPoints(eth.address)).eq(75)
+    expect(await vault.maxUsdgAmounts(eth.address)).eq(500)
+    expect(await vault.stableTokens(eth.address)).eq(true)
+    expect(await vault.shortableTokens(eth.address)).eq(true)
 
-    await daiPriceFeed.setLatestAnswer(toChainlinkPrice(1))
+    await pyth.updatePrice(priceFeedIds.dai, toChainlinkPrice(1))
     await vault.setTokenConfig(
       dai.address, // _token
       20, // _tokenDecimals
@@ -424,31 +422,31 @@ describe("Vault.settings", function () {
     )
 
     expect(await vault.whitelistedTokenCount()).eq(2)
-    expect(await vault.whitelistedTokens(bnb.address)).eq(true)
-    expect(await vault.tokenDecimals(bnb.address)).eq(18)
-    expect(await vault.tokenWeights(bnb.address)).eq(7000)
+    expect(await vault.whitelistedTokens(eth.address)).eq(true)
+    expect(await vault.tokenDecimals(eth.address)).eq(18)
+    expect(await vault.tokenWeights(eth.address)).eq(7000)
     expect(await vault.totalTokenWeights()).eq(12000)
-    expect(await vault.minProfitBasisPoints(bnb.address)).eq(75)
-    expect(await vault.maxUsdgAmounts(bnb.address)).eq(500)
-    expect(await vault.stableTokens(bnb.address)).eq(true)
-    expect(await vault.shortableTokens(bnb.address)).eq(true)
+    expect(await vault.minProfitBasisPoints(eth.address)).eq(75)
+    expect(await vault.maxUsdgAmounts(eth.address)).eq(500)
+    expect(await vault.stableTokens(eth.address)).eq(true)
+    expect(await vault.shortableTokens(eth.address)).eq(true)
 
-    await expect(vault.connect(user0).clearTokenConfig(bnb.address))
+    await expect(vault.connect(user0).clearTokenConfig(eth.address))
       .to.be.revertedWith("Vault: forbidden")
 
-    await vault.clearTokenConfig(bnb.address)
+    await vault.clearTokenConfig(eth.address)
 
     expect(await vault.whitelistedTokenCount()).eq(1)
-    expect(await vault.whitelistedTokens(bnb.address)).eq(false)
-    expect(await vault.tokenDecimals(bnb.address)).eq(0)
-    expect(await vault.tokenWeights(bnb.address)).eq(0)
+    expect(await vault.whitelistedTokens(eth.address)).eq(false)
+    expect(await vault.tokenDecimals(eth.address)).eq(0)
+    expect(await vault.tokenWeights(eth.address)).eq(0)
     expect(await vault.totalTokenWeights()).eq(5000)
-    expect(await vault.minProfitBasisPoints(bnb.address)).eq(0)
-    expect(await vault.maxUsdgAmounts(bnb.address)).eq(0)
-    expect(await vault.stableTokens(bnb.address)).eq(false)
-    expect(await vault.shortableTokens(bnb.address)).eq(false)
+    expect(await vault.minProfitBasisPoints(eth.address)).eq(0)
+    expect(await vault.maxUsdgAmounts(eth.address)).eq(0)
+    expect(await vault.stableTokens(eth.address)).eq(false)
+    expect(await vault.shortableTokens(eth.address)).eq(false)
 
-    await expect(vault.clearTokenConfig(bnb.address))
+    await expect(vault.clearTokenConfig(eth.address))
       .to.be.revertedWith("Vault: token not whitelisted")
   })
 
@@ -467,40 +465,40 @@ describe("Vault.settings", function () {
   })
 
   it("setUsdgAmount", async () => {
-    await bnbPriceFeed.setLatestAnswer(toChainlinkPrice(300))
-    await vault.setTokenConfig(...getBnbConfig(bnb, bnbPriceFeed))
-    await bnb.mint(user0.address, 100)
-    await bnb.connect(user0).transfer(vault.address, 100)
-    await vault.connect(user0).buyUSDG(bnb.address, user1.address)
+    await pyth.updatePrice(priceFeedIds.eth, toChainlinkPrice(300))
+    await vault.setTokenConfig(...getBnbConfig(eth, ethPriceFeed))
+    await eth.mint(user0.address, 100)
+    await eth.connect(user0).transfer(vault.address, 100)
+    await vault.connect(user0).buyUSDG(eth.address, user1.address)
 
-    expect(await vault.usdgAmounts(bnb.address)).eq(29700)
+    expect(await vault.usdgAmounts(eth.address)).eq(29700)
 
-    await expect(vault.connect(user0).setUsdgAmount(bnb.address, 50000))
+    await expect(vault.connect(user0).setUsdgAmount(eth.address, 50000))
       .to.be.revertedWith("Vault: forbidden")
 
     await vault.setGov(user0.address)
 
-    expect(await vault.usdgAmounts(bnb.address)).eq(29700)
-    await vault.connect(user0).setUsdgAmount(bnb.address, 50000)
-    expect(await vault.usdgAmounts(bnb.address)).eq(50000)
+    expect(await vault.usdgAmounts(eth.address)).eq(29700)
+    await vault.connect(user0).setUsdgAmount(eth.address, 50000)
+    expect(await vault.usdgAmounts(eth.address)).eq(50000)
 
-    await vault.connect(user0).setUsdgAmount(bnb.address, 10000)
-    expect(await vault.usdgAmounts(bnb.address)).eq(10000)
+    await vault.connect(user0).setUsdgAmount(eth.address, 10000)
+    expect(await vault.usdgAmounts(eth.address)).eq(10000)
   })
 
   it("upgradeVault", async () => {
-    await bnb.mint(vault.address, 1000)
+    await eth.mint(vault.address, 1000)
 
-    await expect(vault.connect(user0).upgradeVault(user1.address, bnb.address, 1000))
+    await expect(vault.connect(user0).upgradeVault(user1.address, eth.address, 1000))
       .to.be.revertedWith("Vault: forbidden")
 
     await vault.setGov(user0.address)
 
-    expect(await bnb.balanceOf(vault.address)).eq(1000)
-    expect(await bnb.balanceOf(user1.address)).eq(0)
-    await vault.connect(user0).upgradeVault(user1.address, bnb.address, 1000)
-    expect(await bnb.balanceOf(vault.address)).eq(0)
-    expect(await bnb.balanceOf(user1.address)).eq(1000)
+    expect(await eth.balanceOf(vault.address)).eq(1000)
+    expect(await eth.balanceOf(user1.address)).eq(0)
+    await vault.connect(user0).upgradeVault(user1.address, eth.address, 1000)
+    expect(await eth.balanceOf(vault.address)).eq(0)
+    expect(await eth.balanceOf(user1.address)).eq(1000)
   })
 
   it("setErrorController", async () => {

@@ -1,0 +1,578 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <title>Code coverage report for core\VaultUtils.sol</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="../prettify.css" />
+    <link rel="stylesheet" href="../base.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style type='text/css'>
+        .coverage-summary .sorter {
+            background-image: url(../sort-arrow-sprite.png);
+        }
+    </style>
+</head>
+<body>
+<div class='wrapper'>
+  <div class='pad1'>
+    <h1>
+      <a href="../index.html">all files</a> / <a href="index.html">core/</a> VaultUtils.sol
+    </h1>
+    <div class='clearfix'>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">96.88% </span>
+        <span class="quiet">Statements</span>
+        <span class='fraction'>62/64</span>
+      </div>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">89.58% </span>
+        <span class="quiet">Branches</span>
+        <span class='fraction'>43/48</span>
+      </div>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">100% </span>
+        <span class="quiet">Functions</span>
+        <span class='fraction'>13/13</span>
+      </div>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">98.48% </span>
+        <span class="quiet">Lines</span>
+        <span class='fraction'>65/66</span>
+      </div>
+    </div>
+  </div>
+  <div class='status-line high'></div>
+<pre><table class="coverage">
+<tr><td class="line-count quiet">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65
+66
+67
+68
+69
+70
+71
+72
+73
+74
+75
+76
+77
+78
+79
+80
+81
+82
+83
+84
+85
+86
+87
+88
+89
+90
+91
+92
+93
+94
+95
+96
+97
+98
+99
+100
+101
+102
+103
+104
+105
+106
+107
+108
+109
+110
+111
+112
+113
+114
+115
+116
+117
+118
+119
+120
+121
+122
+123
+124
+125
+126
+127
+128
+129
+130
+131
+132
+133
+134
+135
+136
+137
+138
+139
+140
+141
+142
+143
+144
+145
+146
+147
+148
+149
+150
+151
+152
+153
+154
+155
+156
+157
+158
+159
+160
+161
+162
+163
+164
+165
+166
+167
+168
+169
+170
+171
+172</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">939×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">802×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">295×</span>
+<span class="cline-any cline-yes">295×</span>
+<span class="cline-any cline-yes">295×</span>
+<span class="cline-any cline-yes">295×</span>
+<span class="cline-any cline-yes">295×</span>
+<span class="cline-any cline-yes">295×</span>
+<span class="cline-any cline-yes">295×</span>
+<span class="cline-any cline-yes">295×</span>
+<span class="cline-any cline-yes">295×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">295×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">295×</span>
+<span class="cline-any cline-yes">295×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">295×</span>
+<span class="cline-any cline-yes">295×</span>
+<span class="cline-any cline-yes">295×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">295×</span>
+<span class="cline-any cline-yes">14×</span>
+<span class="cline-any cline-yes">14×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">281×</span>
+<span class="cline-any cline-yes">281×</span>
+<span class="cline-any cline-yes">246×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">281×</span>
+<span class="cline-any cline-yes">2×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">279×</span>
+<span class="cline-any cline-yes">10×</span>
+<span class="cline-any cline-yes">2×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">269×</span>
+<span class="cline-any cline-yes">7×</span>
+<span class="cline-any cline-yes">6×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">262×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">256×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">597×</span>
+<span class="cline-any cline-yes">572×</span>
+<span class="cline-any cline-yes">572×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">597×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">430×</span>
+<span class="cline-any cline-yes">430×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">10×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">226×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">25×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">104×</span>
+<span class="cline-any cline-yes">104×</span>
+<span class="cline-any cline-yes">104×</span>
+<span class="cline-any cline-yes">104×</span>
+<span class="cline-any cline-yes">104×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">104×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">498×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">42×</span>
+<span class="cline-any cline-yes">42×</span>
+<span class="cline-any cline-yes">42×</span>
+<span class="cline-any cline-yes">22×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">42×</span>
+<span class="cline-any cline-yes">42×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">41×</span>
+<span class="cline-any cline-yes">41×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">41×</span>
+<span class="cline-any cline-yes">18×</span>
+<span class="cline-any cline-yes">18×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">23×</span>
+<span class="cline-any cline-yes">23×</span>
+<span class="cline-any cline-yes">11×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">23×</span>
+<span class="cline-any cline-yes">23×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// SPDX-License-Identifier: MIT
+&nbsp;
+pragma solidity 0.6.12;
+&nbsp;
+import "../libraries/math/SafeMath.sol";
+import "../libraries/token/IERC20.sol";
+import "./interfaces/IVault.sol";
+import "./interfaces/IVaultUtils.sol";
+&nbsp;
+import "../access/Governable.sol";
+&nbsp;
+contract VaultUtils is IVaultUtils, Governable {
+    using SafeMath for uint256;
+&nbsp;
+    struct Position {
+        uint256 size;
+        uint256 collateral;
+        uint256 averagePrice;
+        uint256 entryFundingRate;
+        uint256 reserveAmount;
+        int256 realisedPnl;
+        uint256 lastIncreasedTime;
+    }
+&nbsp;
+    IVault public vault;
+&nbsp;
+    uint256 public constant BASIS_POINTS_DIVISOR = 10000;
+    uint256 public constant FUNDING_RATE_PRECISION = 1000000;
+&nbsp;
+    constructor(IVault _vault) public {
+        vault = _vault;
+    }
+&nbsp;
+    function updateCumulativeFundingRate(address /* _collateralToken */, address /* _indexToken */) public override returns (bool) {
+        return true;
+    }
+&nbsp;
+    function validateIncreasePosition(address /* _account */, address /* _collateralToken */, address /* _indexToken */, uint256 /* _sizeDelta */, bool /* _isLong */) external override view {
+        // no additional validations
+    }
+&nbsp;
+    function validateDecreasePosition(address /* _account */, address /* _collateralToken */, address /* _indexToken */ , uint256 /* _collateralDelta */, uint256 /* _sizeDelta */, bool /* _isLong */, address /* _receiver */) external override view {
+        // no additional validations
+    }
+&nbsp;
+    function getPosition(address _account, address _collateralToken, address _indexToken, bool _isLong) internal view returns (Position memory) {
+        IVault _vault = vault;
+        Position memory position;
+        {
+            (uint256 size, uint256 collateral, uint256 averagePrice, uint256 entryFundingRate, /* reserveAmount */, /* realisedPnl */, /* hasProfit */, uint256 lastIncreasedTime) = _vault.getPosition(_account, _collateralToken, _indexToken, _isLong);
+            position.size = size;
+            position.collateral = collateral;
+            position.averagePrice = averagePrice;
+            position.entryFundingRate = entryFundingRate;
+            position.lastIncreasedTime = lastIncreasedTime;
+        }
+        return position;
+    }
+&nbsp;
+    function validateLiquidation(address _account, address _collateralToken, address _indexToken, bool _isLong, bool _raise) public view override returns (uint256, uint256) {
+        Position memory position = getPosition(_account, _collateralToken, _indexToken, _isLong);
+        IVault _vault = vault;
+&nbsp;
+        (bool hasProfit, uint256 delta) = _vault.getDelta(_indexToken, position.size, position.averagePrice, _isLong, position.lastIncreasedTime);
+        uint256 marginFees = getFundingFee(_account, _collateralToken, _indexToken, _isLong, position.size, position.entryFundingRate);
+        marginFees = marginFees.add(getPositionFee(_account, _collateralToken, _indexToken, _isLong, position.size));
+&nbsp;
+        if (!hasProfit &amp;&amp; position.collateral &lt; delta) {
+            <span class="missing-if-branch" title="if path not taken" >I</span>if (_raise) { <span class="cstat-no" title="statement not covered" >revert("Vault: losses exceed collateral")</span>; }
+            return (1, marginFees);
+        }
+&nbsp;
+        uint256 remainingCollateral = position.collateral;
+        if (!hasProfit) {
+            remainingCollateral = position.collateral.sub(delta);
+        }
+&nbsp;
+        if (remainingCollateral &lt; marginFees) {
+            <span class="missing-if-branch" title="else path not taken" >E</span>if (_raise) { revert("Vault: fees exceed collateral"); }
+            // cap the fees to the remainingCollateral
+<span class="cstat-no" title="statement not covered" >            return (1, remainingCollateral);</span>
+        }
+&nbsp;
+        if (remainingCollateral &lt; marginFees.add(_vault.liquidationFeeUsd())) {
+            if (_raise) { revert("Vault: liquidation fees exceed collateral"); }
+            return (1, marginFees);
+        }
+&nbsp;
+        if (remainingCollateral.mul(_vault.maxLeverage()) &lt; position.size.mul(BASIS_POINTS_DIVISOR)) {
+            if (_raise) { revert("Vault: maxLeverage exceeded"); }
+            return (2, marginFees);
+        }
+&nbsp;
+        return (0, marginFees);
+    }
+&nbsp;
+    function getEntryFundingRate(address _collateralToken, address /* _indexToken */, bool /* _isLong */) public override view returns (uint256) {
+        return vault.cumulativeFundingRates(_collateralToken);
+    }
+&nbsp;
+    function getPositionFee(address /* _account */, address /* _collateralToken */, address /* _indexToken */, bool /* _isLong */, uint256 _sizeDelta) public override view returns (uint256) {
+        if (_sizeDelta == 0) { return 0; }
+        uint256 afterFeeUsd = _sizeDelta.mul(BASIS_POINTS_DIVISOR.sub(vault.marginFeeBasisPoints())).div(BASIS_POINTS_DIVISOR);
+        return _sizeDelta.sub(afterFeeUsd);
+    }
+&nbsp;
+    function getFundingFee(address /* _account */, address _collateralToken, address /* _indexToken */, bool /* _isLong */, uint256 _size, uint256 _entryFundingRate) public override view returns (uint256) {
+        if (_size == 0) { return 0; }
+&nbsp;
+        uint256 fundingRate = vault.cumulativeFundingRates(_collateralToken).sub(_entryFundingRate);
+        if (fundingRate == 0) { return 0; }
+&nbsp;
+        return _size.mul(fundingRate).div(FUNDING_RATE_PRECISION);
+    }
+&nbsp;
+    function getBuyUsdgFeeBasisPoints(address _token, uint256 _usdgAmount) public override view returns (uint256) {
+        return getFeeBasisPoints(_token, _usdgAmount, vault.mintBurnFeeBasisPoints(), vault.taxBasisPoints(), true);
+    }
+&nbsp;
+    function getSellUsdgFeeBasisPoints(address _token, uint256 _usdgAmount) public override view returns (uint256) {
+        return getFeeBasisPoints(_token, _usdgAmount, vault.mintBurnFeeBasisPoints(), vault.taxBasisPoints(), false);
+    }
+&nbsp;
+    function getSwapFeeBasisPoints(address _tokenIn, address _tokenOut, uint256 _usdgAmount) public override view returns (uint256) {
+        bool isStableSwap = vault.stableTokens(_tokenIn) &amp;&amp; vault.stableTokens(_tokenOut);
+        uint256 baseBps = isStableSwap ? <span class="missing-if-branch" title="if path not taken" >I</span>vault.stableSwapFeeBasisPoints() : vault.swapFeeBasisPoints();
+        uint256 taxBps = isStableSwap ? <span class="missing-if-branch" title="if path not taken" >I</span>vault.stableTaxBasisPoints() : vault.taxBasisPoints();
+        uint256 feesBasisPoints0 = getFeeBasisPoints(_tokenIn, _usdgAmount, baseBps, taxBps, true);
+        uint256 feesBasisPoints1 = getFeeBasisPoints(_tokenOut, _usdgAmount, baseBps, taxBps, false);
+        // use the higher of the two fee basis points
+        return feesBasisPoints0 &gt; feesBasisPoints1 ? <span class="missing-if-branch" title="if path not taken" >I</span>feesBasisPoints0 : feesBasisPoints1;
+    }
+&nbsp;
+    // cases to consider
+    // 1. initialAmount is far from targetAmount, action increases balance slightly =&gt; high rebate
+    // 2. initialAmount is far from targetAmount, action increases balance largely =&gt; high rebate
+    // 3. initialAmount is close to targetAmount, action increases balance slightly =&gt; low rebate
+    // 4. initialAmount is far from targetAmount, action reduces balance slightly =&gt; high tax
+    // 5. initialAmount is far from targetAmount, action reduces balance largely =&gt; high tax
+    // 6. initialAmount is close to targetAmount, action reduces balance largely =&gt; low tax
+    // 7. initialAmount is above targetAmount, nextAmount is below targetAmount and vice versa
+    // 8. a large swap should have similar fees as the same trade split into multiple smaller swaps
+    function getFeeBasisPoints(address _token, uint256 _usdgDelta, uint256 _feeBasisPoints, uint256 _taxBasisPoints, bool _increment) public override view returns (uint256) {
+        if (!vault.hasDynamicFees()) { return _feeBasisPoints; }
+&nbsp;
+        uint256 initialAmount = vault.usdgAmounts(_token);
+        uint256 nextAmount = initialAmount.add(_usdgDelta);
+        if (!_increment) {
+            nextAmount = _usdgDelta &gt; initialAmount ? 0 : initialAmount.sub(_usdgDelta);
+        }
+&nbsp;
+        uint256 targetAmount = vault.getTargetUsdgAmount(_token);
+        if (targetAmount == 0) { return _feeBasisPoints; }
+&nbsp;
+        uint256 initialDiff = initialAmount &gt; targetAmount ? initialAmount.sub(targetAmount) : targetAmount.sub(initialAmount);
+        uint256 nextDiff = nextAmount &gt; targetAmount ? nextAmount.sub(targetAmount) : targetAmount.sub(nextAmount);
+&nbsp;
+        // action improves relative asset balance
+        if (nextDiff &lt; initialDiff) {
+            uint256 rebateBps = _taxBasisPoints.mul(initialDiff).div(targetAmount);
+            return rebateBps &gt; _feeBasisPoints ? 0 : _feeBasisPoints.sub(rebateBps);
+        }
+&nbsp;
+        uint256 averageDiff = initialDiff.add(nextDiff).div(2);
+        if (averageDiff &gt; targetAmount) {
+            averageDiff = targetAmount;
+        }
+        uint256 taxBps = _taxBasisPoints.mul(averageDiff).div(targetAmount);
+        return _feeBasisPoints.add(taxBps);
+    }
+}
+&nbsp;</pre></td></tr>
+</table></pre>
+<div class='push'></div><!-- for sticky footer -->
+</div><!-- /wrapper -->
+<div class='footer quiet pad2 space-top1 center small'>
+  Code coverage
+  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Thu Mar 07 2024 06:38:22 GMT+0200 (Eastern European Standard Time)
+</div>
+</div>
+<script src="../prettify.js"></script>
+<script>
+window.onload = function () {
+        if (typeof prettyPrint === 'function') {
+            prettyPrint();
+        }
+};
+</script>
+<script src="../sorter.js"></script>
+</body>
+</html>

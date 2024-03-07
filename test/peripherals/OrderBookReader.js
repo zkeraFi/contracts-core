@@ -5,6 +5,7 @@ const { expandDecimals, getBlockTime, increaseTime, mineBlock, reportGasUsed } =
 const { initVault } = require("../core/Vault/helpers")
 const { toChainlinkPrice } = require("../shared/chainlink")
 const { toUsd, toNormalizedPrice } = require("../shared/units")
+const { priceFeedIds, priceUpdateData } = require("../shared/pyth")
 
 use(solidity)
 
@@ -16,39 +17,42 @@ describe("OrderBookReader", function () {
   let orderBook;
   let reader;
   let dai;
-  let bnb;
+  let eth;
   let vault;
   let usdg;
   let router;
   let vaultPriceFeed;
+  let pyth
 
   beforeEach(async () => {
+    pyth = await deployContract("Pyth", [])
     dai = await deployContract("Token", [])
 
     btc = await deployContract("Token", [])
-    btcPriceFeed = await deployContract("PriceFeed", [])
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(50000))
+    btcPriceFeed = await deployContract("PythPriceFeedV2", [pyth.address,priceFeedIds.btc,10000])
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(50000))
 
-    bnb = await deployContract("Token", [])
+    eth = await deployContract("Token", [])
 
     vault = await deployVault()
     usdg = await deployContract("USDG", [vault.address])
-    router = await deployContract("Router", [vault.address, usdg.address, bnb.address])
+    router = await deployContract("Router", [vault.address, usdg.address, eth.address,pyth.address])
     vaultPriceFeed = await deployVaultPriceFeed()
 
     await initVault(vault, router, usdg, vaultPriceFeed);
     await vaultPriceFeed.setTokenConfig(btc.address, btcPriceFeed.address, 8, false)
 
-    orderBook = await deployContract("OrderBook", [])
+    orderBook = await deployContract("OrderBookV2", [])
     await router.addPlugin(orderBook.address);
     await router.connect(user0).approvePlugin(orderBook.address);
     await orderBook.initialize(
       router.address,
       vault.address,
-      bnb.address,
+      eth.address,
       usdg.address,
       400000, 
-      expandDecimals(5, 30) // minPurchseTokenAmountUsd
+      expandDecimals(5, 30), // minPurchseTokenAmountUsd
+      pyth.address
     );
     reader = await deployContract("OrderBookReader", [])
 
@@ -59,7 +63,7 @@ describe("OrderBookReader", function () {
     await btc.connect(user0).approve(router.address, expandDecimals(100, 8))
   })
 
-  function createSwapOrder(toToken = bnb.address) {
+  function createSwapOrder(toToken = eth.address) {
     const executionFee = 500000;
 
     return orderBook.connect(user0).createSwapOrder(
@@ -90,6 +94,7 @@ describe("OrderBookReader", function () {
       false, // triggerAboveThreshold
       executionFee,
       false, // shouldWrap
+      priceUpdateData,
       { value: executionFee }
     );
   }
@@ -150,13 +155,13 @@ describe("OrderBookReader", function () {
   });
 
 	it("getSwapOrders", async () => {
-    await createSwapOrder(bnb.address);
+    await createSwapOrder(eth.address);
     await createSwapOrder(btc.address);
 
     const [order1, order2] = unflattenOrders(await reader.getSwapOrders(orderBook.address, user0.address, [0, 1]), 4, 3);
 
     expect(order1[0]).to.be.equal(dai.address);
-    expect(order1[1]).to.be.equal(bnb.address);
+    expect(order1[1]).to.be.equal(eth.address);
 
     expect(order2[0]).to.be.equal(dai.address);
     expect(order2[1]).to.be.equal(btc.address);

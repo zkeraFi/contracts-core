@@ -5,6 +5,7 @@ const { expandDecimals, getBlockTime, increaseTime, mineBlock, reportGasUsed } =
 const { toChainlinkPrice } = require("../shared/chainlink")
 const { toUsd, toNormalizedPrice } = require("../shared/units")
 const { initVault, getBnbConfig, getBtcConfig, getDaiConfig } = require("../core/Vault/helpers")
+const { priceFeedIds } = require("../shared/pyth")
 
 use(solidity)
 
@@ -14,8 +15,8 @@ describe("Reader", function () {
   let vault
   let usdg
   let router
-  let bnb
-  let bnbPriceFeed
+  let eth
+  let ethPriceFeed
   let btc
   let btcPriceFeed
   let dai
@@ -23,20 +24,22 @@ describe("Reader", function () {
   let distributor0
   let yieldTracker0
   let reader
+  let pyth
 
   beforeEach(async () => {
-    bnb = await deployContract("Token", [])
-    bnbPriceFeed = await deployContract("PriceFeed", [])
+    pyth = await deployContract("Pyth", [])
+    eth = await deployContract("Token", [])
+    ethPriceFeed = await deployContract("PythPriceFeedV2", [pyth.address,priceFeedIds.eth,10000])
 
     btc = await deployContract("Token", [])
-    btcPriceFeed = await deployContract("PriceFeed", [])
+    btcPriceFeed = await deployContract("PythPriceFeedV2", [pyth.address,priceFeedIds.btc,10000])
 
     dai = await deployContract("Token", [])
-    daiPriceFeed = await deployContract("PriceFeed", [])
+    daiPriceFeed = await deployContract("PythPriceFeedV2", [pyth.address,priceFeedIds.dai,10000])
 
     vault = await deployVault()
     usdg = await deployContract("USDG", [vault.address])
-    router = await deployContract("Router", [vault.address, usdg.address, bnb.address])
+    router = await deployContract("Router", [vault.address, usdg.address, eth.address,pyth.address])
     vaultPriceFeed = await deployVaultPriceFeed()
 
     await initVault(vault, router, usdg, vaultPriceFeed)
@@ -45,9 +48,9 @@ describe("Reader", function () {
     yieldTracker0 = await deployContract("YieldTracker", [usdg.address])
 
     await yieldTracker0.setDistributor(distributor0.address)
-    await distributor0.setDistribution([yieldTracker0.address], [1000], [bnb.address])
+    await distributor0.setDistribution([yieldTracker0.address], [1000], [eth.address])
 
-    await bnb.mint(distributor0.address, 5000)
+    await eth.mint(distributor0.address, 5000)
     await usdg.setYieldTrackers([yieldTracker0.address])
 
     reader = await deployContract("Reader", [])
@@ -57,13 +60,13 @@ describe("Reader", function () {
   })
 
   it("getVaultTokenInfo", async () => {
-    await daiPriceFeed.setLatestAnswer(toChainlinkPrice(1))
+    await pyth.updatePrice(priceFeedIds.dai, toChainlinkPrice(1))
     await vault.setTokenConfig(...getDaiConfig(dai, daiPriceFeed))
 
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(60000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(60000))
     await vault.setTokenConfig(...getBtcConfig(btc, btcPriceFeed))
 
-    const results = await reader.getVaultTokenInfo(vault.address, bnb.address, expandDecimals(1, 30), [btc.address, dai.address])
+    const results = await reader.getVaultTokenInfo(vault.address, eth.address, expandDecimals(1, 30), [btc.address, dai.address])
     expect(await results.length).eq(20)
   })
 })

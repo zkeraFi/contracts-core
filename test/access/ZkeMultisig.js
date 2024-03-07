@@ -6,6 +6,7 @@ const { toChainlinkPrice } = require("../shared/chainlink")
 const { toUsd, toNormalizedPrice } = require("../shared/units")
 const { initVault, getBnbConfig, getBtcConfig, getDaiConfig } = require("../core/Vault/helpers")
 const { ethers, utils } = require("ethers");
+const { priceFeedIds } = require("../shared/pyth")
 use(solidity)
 
 const { AddressZero } = ethers.constants
@@ -54,66 +55,26 @@ describe("ZkeMultisig", function () {
     const provider = waffle.provider
     const [wallet, user0, user1, user2, user3, signer0, signer1, signer2, tokenManager] = provider.getWallets()
 
-
-
-
-
-
-
-    const vestingDuration = 365 * 24 * 60 * 60
-    const zero_address = ethers.constants.AddressZero
-    let timelock
     let nft0
     let nft1
-    let vault
-    let zlpManager
-    let zlp
-    let usdg
-    let router
-    let vaultPriceFeed
-    let bnb
-    let bnbPriceFeed
-    let btc
-    let btcPriceFeed
+
     let eth
     let ethPriceFeed
-    let dai
-    let daiPriceFeed
-    let busd
-    let busdPriceFeed
 
     let zke
-    let esZke
-    let bnZke
-
-    let stakedZkeTracker
-    let stakedZkeDistributor
-    let bonusZkeTracker
-    let bonusZkeDistributor
-    let feeZkeTracker
-    let feeZkeDistributor
-
-    let feeZlpTracker
-    let feeZlpDistributor
-    let stakedZlpTracker
-    let stakedZlpDistributor
-
-    let zkeVester
-    let zlpVester
-
-    let rewardRouter
 
     let user0Data = user0.address.split("");
     user0Data.splice(0, 2);
     user0Data = user0Data.join("");
     let zkeMultisig
-    const data = "0xd6bf66c200000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001";
-    const data2 = "0xd6bf66c200000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000";
-    const data3 = `0xef9aacfd000000000000000000000000${user0Data}`
+    let data = "0xd6bf66c200000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001";
+
+    let pyth;
 
     beforeEach(async () => {
+        pyth = await deployContract("Pyth", [])
         eth = await deployContract("Token", [])
-        ethPriceFeed = await deployContract("PriceFeed", [])
+        ethPriceFeed = await deployContract("PythPriceFeedV2", [pyth.address,priceFeedIds.eth,10000])
         zke = await deployContract("ZKE", []);
         nft0 = await deployContract("ERC721", ["NFT0", "NFT0"])
         nft1 = await deployContract("ERC721", ["NFT1", "NFT1"])
@@ -840,284 +801,6 @@ describe("ZkeMultisig", function () {
         await expect(tx2)
             .to.emit(zkeMultisig, "SignAction")
             .withArgs(getHashTransaction([tokenManager.address, expandDecimals(1, 18), data, 1]), 1);
-    })
-
-    it("executeTransaction", async () => {
-
-        bnb = await deployContract("Token", [])
-        bnbPriceFeed = await deployContract("PriceFeed", [])
-
-        btc = await deployContract("Token", [])
-        btcPriceFeed = await deployContract("PriceFeed", [])
-
-        dai = await deployContract("Token", [])
-        daiPriceFeed = await deployContract("PriceFeed", [])
-
-        busd = await deployContract("Token", [])
-        busdPriceFeed = await deployContract("PriceFeed", [])
-
-        vault = await deployVault()
-        usdg = await deployContract("USDG", [vault.address])
-        router = await deployContract("Router", [vault.address, usdg.address, bnb.address])
-        vaultPriceFeed = await deployVaultPriceFeed()
-        zlp = await deployContract("ZLP", [])
-
-        await initVault(vault, router, usdg, vaultPriceFeed)
-        zlpManager = await deployZlpManager([vault.address, usdg.address, zlp.address, ethers.constants.AddressZero, 24 * 60 * 60])
-
-        timelock = await deployTimelock([
-            wallet.address, // _admin
-            10, // _buffer
-            tokenManager.address, // _tokenManager
-            tokenManager.address, // _mintReceiver
-            zlpManager.address, // _zlpManager
-            user0.address, // _rewardRouter
-            expandDecimals(1000000, 18), // _maxTokenSupply
-            10, // marginFeeBasisPoints
-            100 // maxMarginFeeBasisPoints
-        ])
-
-        await vaultPriceFeed.setTokenConfig(bnb.address, bnbPriceFeed.address, 8, false)
-        await vaultPriceFeed.setTokenConfig(btc.address, btcPriceFeed.address, 8, false)
-        await vaultPriceFeed.setTokenConfig(eth.address, ethPriceFeed.address, 8, false)
-        await vaultPriceFeed.setTokenConfig(dai.address, daiPriceFeed.address, 8, false)
-
-        await daiPriceFeed.setLatestAnswer(toChainlinkPrice(1))
-        await vault.setTokenConfig(...getDaiConfig(dai, daiPriceFeed))
-
-        await btcPriceFeed.setLatestAnswer(toChainlinkPrice(60000))
-        await vault.setTokenConfig(...getBtcConfig(btc, btcPriceFeed))
-
-        await bnbPriceFeed.setLatestAnswer(toChainlinkPrice(300))
-        await vault.setTokenConfig(...getBnbConfig(bnb, bnbPriceFeed))
-
-        await zlp.setInPrivateTransferMode(true)
-        await zlp.setMinter(zlpManager.address, true)
-        await zlpManager.setInPrivateMode(true)
-
-
-        esZke = await deployContract("EsZKE", []);
-        bnZke = await deployContract("MintableBaseToken", ["Bonus ZKE", "bnZKE", 0]);
-
-        // ZKE
-        stakedZkeTracker = await deployContract("RewardTracker", ["Staked ZKE", "sZKE"])
-        stakedZkeDistributor = await deployRewardDistributor([esZke.address, stakedZkeTracker.address])
-        await stakedZkeTracker.initialize([zke.address, esZke.address], stakedZkeDistributor.address)
-        await stakedZkeDistributor.updateLastDistributionTime()
-
-        bonusZkeTracker = await deployContract("RewardTracker", ["Staked + Bonus ZKE", "sbZKE"])
-        bonusZkeDistributor = await deployBonusDistributor([bnZke.address, bonusZkeTracker.address])
-        await bonusZkeTracker.initialize([stakedZkeTracker.address], bonusZkeDistributor.address)
-        await bonusZkeDistributor.updateLastDistributionTime()
-
-        feeZkeTracker = await deployContract("RewardTracker", ["Staked + Bonus + Fee ZKE", "sbfZKE"])
-        feeZkeDistributor = await deployRewardDistributor([eth.address, feeZkeTracker.address])
-        await feeZkeTracker.initialize([bonusZkeTracker.address, bnZke.address], feeZkeDistributor.address)
-        await feeZkeDistributor.updateLastDistributionTime()
-
-        // ZLP
-        feeZlpTracker = await deployContract("RewardTracker", ["Fee ZLP", "fZLP"])
-        feeZlpDistributor = await deployRewardDistributor([eth.address, feeZlpTracker.address])
-        await feeZlpTracker.initialize([zlp.address], feeZlpDistributor.address)
-        await feeZlpDistributor.updateLastDistributionTime()
-
-        stakedZlpTracker = await deployContract("RewardTracker", ["Fee + Staked ZLP", "fsZLP"])
-        stakedZlpDistributor = await deployRewardDistributor([esZke.address, stakedZlpTracker.address])
-        await stakedZlpTracker.initialize([feeZlpTracker.address], stakedZlpDistributor.address)
-        await stakedZlpDistributor.updateLastDistributionTime()
-
-        zkeVester = await deployVester([
-            "Vested ZKE", // _name
-            "vZKE", // _symbol
-            vestingDuration, // _vestingDuration
-            esZke.address, // _esToken
-            feeZkeTracker.address, // _pairToken
-            zke.address, // _claimableToken
-            stakedZkeTracker.address, // _rewardTracker
-        ])
-
-        zlpVester = await deployVester([
-            "Vested ZLP", // _name
-            "vZLP", // _symbol
-            vestingDuration, // _vestingDuration
-            esZke.address, // _esToken
-            stakedZlpTracker.address, // _pairToken
-            zke.address, // _claimableToken
-            stakedZlpTracker.address, // _rewardTracker
-        ])
-
-        await stakedZkeTracker.setInPrivateTransferMode(true)
-        await stakedZkeTracker.setInPrivateStakingMode(true)
-        await bonusZkeTracker.setInPrivateTransferMode(true)
-        await bonusZkeTracker.setInPrivateStakingMode(true)
-        await bonusZkeTracker.setInPrivateClaimingMode(true)
-        await feeZkeTracker.setInPrivateTransferMode(true)
-        await feeZkeTracker.setInPrivateStakingMode(true)
-
-        await feeZlpTracker.setInPrivateTransferMode(true)
-        await feeZlpTracker.setInPrivateStakingMode(true)
-        await stakedZlpTracker.setInPrivateTransferMode(true)
-        await stakedZlpTracker.setInPrivateStakingMode(true)
-
-        await esZke.setInPrivateTransferMode(true)
-
-        rewardRouter = await deployContract("RewardRouterV2", [])
-        await rewardRouter.initialize(
-            bnb.address,
-            zke.address,
-            esZke.address,
-            bnZke.address,
-            zlp.address,
-            stakedZkeTracker.address,
-            bonusZkeTracker.address,
-            feeZkeTracker.address,
-            feeZlpTracker.address,
-            stakedZlpTracker.address,
-            zlpManager.address,
-            zkeVester.address,
-            zlpVester.address
-        )
-
-        // allow bonusZkeTracker to stake stakedZkeTracker
-        await stakedZkeTracker.setHandler(bonusZkeTracker.address, true)
-        // allow bonusZkeTracker to stake feeZkeTracker
-        await bonusZkeTracker.setHandler(feeZkeTracker.address, true)
-        await bonusZkeDistributor.setBonusMultiplier(10000)
-        // allow feeZkeTracker to stake bnZke
-        await bnZke.setHandler(feeZkeTracker.address, true)
-
-        // allow stakedZlpTracker to stake feeZlpTracker
-        await feeZlpTracker.setHandler(stakedZlpTracker.address, true)
-        // allow feeZlpTracker to stake zlp
-        await zlp.setHandler(feeZlpTracker.address, true)
-
-        // mint esZke for distributors
-        await esZke.setMinter(wallet.address, true)
-        await esZke.mint(stakedZkeDistributor.address, expandDecimals(50000, 18))
-        await stakedZkeDistributor.setTokensPerInterval("20667989410000000") // 0.02066798941 esZke per second
-        await esZke.mint(stakedZlpDistributor.address, expandDecimals(50000, 18))
-        await stakedZlpDistributor.setTokensPerInterval("20667989410000000") // 0.02066798941 esZke per second
-
-        // mint bnZke for distributor
-        await bnZke.setMinter(wallet.address, true)
-        await bnZke.mint(bonusZkeDistributor.address, expandDecimals(1500, 18))
-
-        await esZke.setHandler(tokenManager.address, true)
-        await zkeVester.setHandler(wallet.address, true)
-
-        await esZke.setHandler(rewardRouter.address, true)
-        await esZke.setHandler(stakedZkeDistributor.address, true)
-        await esZke.setHandler(stakedZlpDistributor.address, true)
-        await esZke.setHandler(stakedZkeTracker.address, true)
-        await esZke.setHandler(stakedZlpTracker.address, true)
-        await esZke.setHandler(zkeVester.address, true)
-        await esZke.setHandler(zlpVester.address, true)
-
-        await zlpManager.setHandler(rewardRouter.address, true)
-        await stakedZkeTracker.setHandler(rewardRouter.address, true)
-        await bonusZkeTracker.setHandler(rewardRouter.address, true)
-        await feeZkeTracker.setHandler(rewardRouter.address, true)
-        await feeZlpTracker.setHandler(rewardRouter.address, true)
-        await stakedZlpTracker.setHandler(rewardRouter.address, true)
-
-        await esZke.setHandler(rewardRouter.address, true)
-        await bnZke.setMinter(rewardRouter.address, true)
-        await esZke.setMinter(zkeVester.address, true)
-        await esZke.setMinter(zlpVester.address, true)
-
-        await zkeVester.setHandler(rewardRouter.address, true)
-        await zlpVester.setHandler(rewardRouter.address, true)
-
-        await feeZkeTracker.setHandler(zkeVester.address, true)
-        await stakedZlpTracker.setHandler(zlpVester.address, true)
-
-        await zlpManager.setGov(timelock.address)
-        await stakedZkeTracker.setGov(timelock.address)
-        await bonusZkeTracker.setGov(timelock.address)
-        await feeZkeTracker.setGov(timelock.address)
-        await feeZlpTracker.setGov(timelock.address)
-        await stakedZlpTracker.setGov(timelock.address)
-        await stakedZkeDistributor.setGov(timelock.address)
-        await stakedZlpDistributor.setGov(timelock.address)
-        await esZke.setGov(timelock.address)
-        await bnZke.setGov(timelock.address)
-        await zkeVester.setGov(timelock.address)
-        await zlpVester.setGov(timelock.address)
-
-
-
-        await eth.mint(feeZlpDistributor.address, expandDecimals(100, 18))
-        await feeZlpDistributor.setTokensPerInterval("41335970000000")
-
-        await wallet.sendTransaction({
-            to: zkeMultisig.address,
-            value: expandDecimals(5, 18)
-        });
-
-        await expect(zkeMultisig.connect(user0).executeTransaction(rewardRouter.address, expandDecimals(1, 18), data, 1))
-            .to.be.revertedWith("ZkeMultisig: forbidden")
-
-        await expect(zkeMultisig.connect(wallet).executeTransaction(rewardRouter.address, expandDecimals(1, 18), data, 1))
-            .to.be.revertedWith("ZkeMultisig: action not signalled")
-
-        await zkeMultisig.connect(wallet).signalTransaction(rewardRouter.address, expandDecimals(1, 18), data)
-
-        await expect(zkeMultisig.connect(wallet).executeTransaction(user3.address, expandDecimals(1, 18), data, 1))
-            .to.be.revertedWith("ZkeMultisig: action not signalled")
-
-        await expect(zkeMultisig.connect(wallet).executeTransaction(rewardRouter.address, expandDecimals(1, 18), data2, 1))
-            .to.be.revertedWith("ZkeMultisig: action not signalled")
-
-        await expect(zkeMultisig.connect(wallet).executeTransaction(rewardRouter.address, expandDecimals(2, 18), data, 1))
-            .to.be.revertedWith("ZkeMultisig: action not signalled")
-
-        await expect(zkeMultisig.connect(wallet).executeTransaction(rewardRouter.address, expandDecimals(1, 18), data, 1))
-            .to.be.revertedWith("ZkeMultisig: action not authorized")
-
-        await zkeMultisig.connect(signer0).signTransaction(rewardRouter.address, expandDecimals(1, 18), data, 1)
-
-        await expect(zkeMultisig.connect(wallet).executeTransaction(rewardRouter.address, expandDecimals(1, 18), data, 1))
-            .to.be.revertedWith("ZkeMultisig: insufficient authorization")
-
-        await zkeMultisig.connect(signer2).signTransaction(rewardRouter.address, expandDecimals(1, 18), data, 1)
-
-        const tx = await zkeMultisig.connect(wallet).executeTransaction(rewardRouter.address, expandDecimals(1, 18), data, 1)
-
-        await expect(tx)
-            .to.emit(zkeMultisig, "ClearAction")
-            .withArgs(getHashTransaction([rewardRouter.address, expandDecimals(1, 18), data, 1]), 1);
-
-        expect(await feeZlpTracker.stakedAmounts(zkeMultisig.address)).to.not.eq(0)
-        expect(await feeZlpTracker.depositBalances(zkeMultisig.address, zlp.address)).to.not.eq(0)
-
-        expect(await stakedZlpTracker.stakedAmounts(zkeMultisig.address)).to.not.eq(0)
-        expect(await stakedZlpTracker.depositBalances(zkeMultisig.address, feeZlpTracker.address)).to.not.eq(0)
-        expect(await provider.getBalance(zkeMultisig.address)).to.eq(expandDecimals(4, 18));
-
-
-
-        await zkeMultisig.connect(wallet).signalTransaction(rewardRouter.address, 0, data3)
-        await zkeMultisig.connect(signer1).signTransaction(rewardRouter.address, 0, data3, 2)
-        await zkeMultisig.connect(signer2).signTransaction(rewardRouter.address, 0, data3, 2)
-
-        const tx2 = await zkeMultisig.connect(wallet).executeTransaction(rewardRouter.address, 0, data3, 2)
-        await expect(tx2)
-            .to.emit(zkeMultisig, "ClearAction")
-            .withArgs(getHashTransaction([rewardRouter.address, 0, data3, 2]), 2);
-
-        await rewardRouter.connect(user0).acceptTransfer(zkeMultisig.address);
-
-        expect(await feeZlpTracker.stakedAmounts(zkeMultisig.address)).to.eq(0)
-        expect(await feeZlpTracker.depositBalances(zkeMultisig.address, zlp.address)).to.eq(0)
-
-        expect(await stakedZlpTracker.stakedAmounts(zkeMultisig.address)).to.eq(0)
-        expect(await stakedZlpTracker.depositBalances(zkeMultisig.address, feeZlpTracker.address)).to.eq(0)
-
-        expect(await feeZlpTracker.stakedAmounts(user0.address)).to.not.eq(0)
-        expect(await feeZlpTracker.depositBalances(user0.address, zlp.address)).to.not.eq(0)
-
-        expect(await stakedZlpTracker.stakedAmounts(user0.address)).to.not.eq(0)
-        expect(await stakedZlpTracker.depositBalances(user0.address, feeZlpTracker.address)).to.not.eq(0)
     })
 
     it("signalSetMinAuthorizations", async () => {

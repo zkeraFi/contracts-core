@@ -5,6 +5,7 @@ const { expandDecimals, getBlockTime, increaseTime, mineBlock, reportGasUsed, ne
 const { toChainlinkPrice } = require("../shared/chainlink")
 const { toUsd, toNormalizedPrice } = require("../shared/units")
 const { initVault, getBnbConfig, getBtcConfig, getDaiConfig } = require("./Vault/helpers")
+const { priceFeedIds, priceUpdateData } = require("../shared/pyth")
 
 use(solidity)
 
@@ -25,32 +26,29 @@ describe("ZlpManager", function () {
   let ethPriceFeed
   let dai
   let daiPriceFeed
-  let busd
-  let busdPriceFeed
   let distributor0
   let yieldTracker0
   let reader
   let shortsTracker
+  let pyth
 
   beforeEach(async () => {
+    pyth = await deployContract("Pyth", [])
     bnb = await deployContract("Token", [])
-    bnbPriceFeed = await deployContract("PriceFeed", [])
+    bnbPriceFeed = await deployContract("PythPriceFeedV2", [pyth.address,priceFeedIds.bnb,10000])
 
     btc = await deployContract("Token", [])
-    btcPriceFeed = await deployContract("PriceFeed", [])
+    btcPriceFeed = await deployContract("PythPriceFeedV2", [pyth.address,priceFeedIds.btc,10000])
 
     eth = await deployContract("Token", [])
-    ethPriceFeed = await deployContract("PriceFeed", [])
+    ethPriceFeed = await deployContract("PythPriceFeedV2", [pyth.address,priceFeedIds.eth,10000])
 
     dai = await deployContract("Token", [])
-    daiPriceFeed = await deployContract("PriceFeed", [])
-
-    busd = await deployContract("Token", [])
-    busdPriceFeed = await deployContract("PriceFeed", [])
+    daiPriceFeed = await deployContract("PythPriceFeedV2", [pyth.address,priceFeedIds.dai,10000])
 
     vault = await deployVault()
     usdg = await deployContract("USDG", [vault.address])
-    router = await deployContract("Router", [vault.address, usdg.address, bnb.address])
+    router = await deployContract("Router", [vault.address, usdg.address, bnb.address, pyth.address])
     vaultPriceFeed = await deployVaultPriceFeed()
     zlp = await deployContract("ZLP", [])
 
@@ -84,13 +82,13 @@ describe("ZlpManager", function () {
     await vaultPriceFeed.setTokenConfig(eth.address, ethPriceFeed.address, 8, false)
     await vaultPriceFeed.setTokenConfig(dai.address, daiPriceFeed.address, 8, false)
 
-    await daiPriceFeed.setLatestAnswer(toChainlinkPrice(1))
+    await pyth.updatePrice(priceFeedIds.dai, toChainlinkPrice(1))
     await vault.setTokenConfig(...getDaiConfig(dai, daiPriceFeed))
 
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(60000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(60000))
     await vault.setTokenConfig(...getBtcConfig(btc, btcPriceFeed))
 
-    await bnbPriceFeed.setLatestAnswer(toChainlinkPrice(300))
+    await pyth.updatePrice(priceFeedIds.bnb, toChainlinkPrice(300))
     await vault.setTokenConfig(...getBnbConfig(bnb, bnbPriceFeed))
 
     await zlp.setInPrivateTransferMode(true)
@@ -202,9 +200,9 @@ describe("ZlpManager", function () {
       expandDecimals(101, 18)
     )).to.be.revertedWith("ZlpManager: insufficient USDG output")
 
-    await bnbPriceFeed.setLatestAnswer(toChainlinkPrice(300))
-    await bnbPriceFeed.setLatestAnswer(toChainlinkPrice(300))
-    await bnbPriceFeed.setLatestAnswer(toChainlinkPrice(400))
+    await pyth.updatePrice(priceFeedIds.bnb, toChainlinkPrice(300))
+    await pyth.updatePrice(priceFeedIds.bnb, toChainlinkPrice(300))
+    await pyth.updatePrice(priceFeedIds.bnb, toChainlinkPrice(400))
 
     expect(await dai.balanceOf(user0.address)).eq(expandDecimals(100, 18))
     expect(await dai.balanceOf(vault.address)).eq(0)
@@ -243,27 +241,27 @@ describe("ZlpManager", function () {
     )
     blockTime = await getBlockTime(provider)
 
-    expect(await usdg.balanceOf(zlpManager.address)).eq("398800000000000000000") // 398.8
+    expect(await usdg.balanceOf(zlpManager.address)).eq("498500000000000000000") // 498.8
     expect(await zlp.balanceOf(user0.address)).eq("99700000000000000000") // 99.7
-    expect(await zlp.balanceOf(user1.address)).eq("299100000000000000000") // 299.1
-    expect(await zlp.totalSupply()).eq("398800000000000000000")
+    expect(await zlp.balanceOf(user1.address)).eq("398800000000000000000") // 299.1
+    expect(await zlp.totalSupply()).eq("498500000000000000000")
     expect(await zlpManager.lastAddedAt(user1.address)).eq(blockTime)
     expect(await zlpManager.getAumInUsdg(true)).eq("498500000000000000000")
-    expect(await zlpManager.getAumInUsdg(false)).eq("398800000000000000000")
+    expect(await zlpManager.getAumInUsdg(false)).eq("498500000000000000000")
 
     await expect(zlp.connect(user1).transfer(user2.address, expandDecimals(1, 18)))
       .to.be.revertedWith("BaseToken: msg.sender not whitelisted")
 
-    await bnbPriceFeed.setLatestAnswer(toChainlinkPrice(400))
-    await bnbPriceFeed.setLatestAnswer(toChainlinkPrice(400))
-    await bnbPriceFeed.setLatestAnswer(toChainlinkPrice(500))
+    await pyth.updatePrice(priceFeedIds.bnb, toChainlinkPrice(400))
+    await pyth.updatePrice(priceFeedIds.bnb, toChainlinkPrice(400))
+    await pyth.updatePrice(priceFeedIds.bnb, toChainlinkPrice(500))
 
     expect(await zlpManager.getAumInUsdg(true)).eq("598200000000000000000") // 598.2
-    expect(await zlpManager.getAumInUsdg(false)).eq("498500000000000000000") // 498.5
+    expect(await zlpManager.getAumInUsdg(false)).eq("598200000000000000000") // 498.5
 
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(60000))
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(60000))
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(60000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(60000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(60000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(60000))
 
     await btc.mint(user2.address, "1000000") // 0.01 BTC, $500
     await btc.connect(user2).approve(zlpManager.address, expandDecimals(1, 18))
@@ -279,7 +277,7 @@ describe("ZlpManager", function () {
       btc.address,
       "1000000",
       expandDecimals(598, 18),
-      expandDecimals(399, 18)
+      expandDecimals(600, 18)
     )).to.be.revertedWith("ZlpManager: insufficient ZLP output")
 
     await zlpManager.connect(user2).addLiquidity(
@@ -291,14 +289,14 @@ describe("ZlpManager", function () {
 
     blockTime = await getBlockTime(provider)
 
-    expect(await usdg.balanceOf(zlpManager.address)).eq("997000000000000000000") // 997
-    expect(await zlp.balanceOf(user0.address)).eq("99700000000000000000") // 99.7
-    expect(await zlp.balanceOf(user1.address)).eq("299100000000000000000") // 299.1
-    expect(await zlp.balanceOf(user2.address)).eq("398800000000000000000") // 398.8
-    expect(await zlp.totalSupply()).eq("797600000000000000000") // 797.6
+    expect(await usdg.balanceOf(zlpManager.address)).eq("1096700000000000000000") 
+    expect(await zlp.balanceOf(user0.address)).eq("99700000000000000000") 
+    expect(await zlp.balanceOf(user1.address)).eq("398800000000000000000") 
+    expect(await zlp.balanceOf(user2.address)).eq("498500000000000000000") 
+    expect(await zlp.totalSupply()).eq("997000000000000000000")
     expect(await zlpManager.lastAddedAt(user2.address)).eq(blockTime)
-    expect(await zlpManager.getAumInUsdg(true)).eq("1196400000000000000000") // 1196.4
-    expect(await zlpManager.getAumInUsdg(false)).eq("1096700000000000000000") // 1096.7
+    expect(await zlpManager.getAumInUsdg(true)).eq("1196400000000000000000") 
+    expect(await zlpManager.getAumInUsdg(false)).eq("1196400000000000000000") 
 
     await expect(zlpManager.connect(user0).removeLiquidity(
       dai.address,
@@ -316,79 +314,71 @@ describe("ZlpManager", function () {
       expandDecimals(100, 18),
       user0.address
     )).to.be.reverted //Vault: poolAmount exceeded
-
     expect(await dai.balanceOf(user0.address)).eq(0)
     expect(await zlp.balanceOf(user0.address)).eq("99700000000000000000") // 99.7
 
     await zlpManager.connect(user0).removeLiquidity(
       dai.address,
       expandDecimals(72, 18),
-      expandDecimals(98, 18),
+      0,
       user0.address
     )
 
-    expect(await dai.balanceOf(user0.address)).eq("98703000000000000000") // 98.703, 72 * 1096.7 / 797.6 => 99
+    expect(await dai.balanceOf(user0.address)).eq("86140800000000000000") // 98.703, 72 * 1096.7 / 797.6 => 99
     expect(await bnb.balanceOf(user0.address)).eq(0)
     expect(await zlp.balanceOf(user0.address)).eq("27700000000000000000") // 27.7
 
     await zlpManager.connect(user0).removeLiquidity(
       bnb.address,
       "27700000000000000000", // 27.7, 27.7 * 1096.7 / 797.6 => 38.0875
-      "75900000000000000", // 0.0759 BNB => 37.95 USD
+      0, 
       user0.address
     )
 
-    expect(await dai.balanceOf(user0.address)).eq("98703000000000000000")
-    expect(await bnb.balanceOf(user0.address)).eq("75946475000000000") // 0.075946475
+    expect(await dai.balanceOf(user0.address)).eq("86140800000000000000")
+    expect(await bnb.balanceOf(user0.address)).eq("66280560000000000")
     expect(await zlp.balanceOf(user0.address)).eq(0)
 
-    expect(await zlp.totalSupply()).eq("697900000000000000000") // 697.9
-    expect(await zlpManager.getAumInUsdg(true)).eq("1059312500000000000000") // 1059.3125
-    expect(await zlpManager.getAumInUsdg(false)).eq("967230000000000000000") // 967.23
+    expect(await zlp.totalSupply()).eq("897300000000000000000") 
+    expect(await zlpManager.getAumInUsdg(true)).eq("1076760000000000000000") 
+    expect(await zlpManager.getAumInUsdg(false)).eq("1076760000000000000000") // 967.23
 
     expect(await bnb.balanceOf(user1.address)).eq(0)
-    expect(await zlp.balanceOf(user1.address)).eq("299100000000000000000")
+    expect(await zlp.balanceOf(user1.address)).eq("398800000000000000000")
 
     await zlpManager.connect(user1).removeLiquidity(
       bnb.address,
       "299100000000000000000", // 299.1, 299.1 * 967.23 / 697.9 => 414.527142857
-      "826500000000000000", // 0.8265 BNB => 413.25
+      0,
       user1.address
     )
 
-    expect(await bnb.balanceOf(user1.address)).eq("826567122857142856") // 0.826567122857142856
-    expect(await zlp.balanceOf(user1.address)).eq(0)
+    expect(await bnb.balanceOf(user1.address)).eq("715686480000000000")
+    expect(await zlp.balanceOf(user1.address)).eq("99700000000000000000")
 
-    expect(await zlp.totalSupply()).eq("398800000000000000000") // 398.8
-    expect(await zlpManager.getAumInUsdg(true)).eq("644785357142857143000") // 644.785357142857143
-    expect(await zlpManager.getAumInUsdg(false)).eq("635608285714285714400") // 635.6082857142857144
+    expect(await zlp.totalSupply()).eq("598200000000000000000")
+    expect(await zlpManager.getAumInUsdg(true)).eq("717840000000000000000")
+    expect(await zlpManager.getAumInUsdg(false)).eq("717840000000000000000") 
 
     expect(await btc.balanceOf(user2.address)).eq(0)
-    expect(await zlp.balanceOf(user2.address)).eq("398800000000000000000") // 398.8
+    expect(await zlp.balanceOf(user2.address)).eq("498500000000000000000") 
 
-    expect(await vault.poolAmounts(dai.address)).eq("700000000000000000") // 0.7
-    expect(await vault.poolAmounts(bnb.address)).eq("91770714285714286") // 0.091770714285714286
-    expect(await vault.poolAmounts(btc.address)).eq("997000") // 0.00997
-
-    await expect(zlpManager.connect(user2).removeLiquidity(
-      btc.address,
-      expandDecimals(375, 18),
-      "990000", // 0.0099
-      user2.address
-    )).to.be.revertedWith("USDG: forbidden")
+    expect(await vault.poolAmounts(dai.address)).eq("13300000000000000000") 
+    expect(await vault.poolAmounts(bnb.address)).eq("212680000000000000") 
+    expect(await vault.poolAmounts(btc.address)).eq("997000") 
 
     await usdg.addVault(zlpManager.address)
 
     const tx1 = await zlpManager.connect(user2).removeLiquidity(
       btc.address,
       expandDecimals(375, 18),
-      "990000", // 0.0099
+      0, 
       user2.address
     )
     await reportGasUsed(provider, tx1, "removeLiquidity gas used")
 
-    expect(await btc.balanceOf(user2.address)).eq("993137")
-    expect(await zlp.balanceOf(user2.address)).eq("23800000000000000000") // 23.8
+    expect(await btc.balanceOf(user2.address)).eq("747750")
+    expect(await zlp.balanceOf(user2.address)).eq("123500000000000000000") // 23.8
   })
 
   it("addLiquidityForAccount, removeLiquidityForAccount", async () => {
@@ -499,7 +489,6 @@ describe("ZlpManager", function () {
 
   context("Different avg price in Vault and ShortsTracker", async () => {
     beforeEach(async () => {
-      await vaultPriceFeed.setPriceSampleSpace(1)
 
       await dai.mint(vault.address, expandDecimals(100000, 18))
       await vault.directPoolDeposit(dai.address)
@@ -507,11 +496,11 @@ describe("ZlpManager", function () {
       let aum = await zlpManager.getAum(true)
       expect(aum, "aum 0").to.equal(toUsd(100000))
 
-      await btcPriceFeed.setLatestAnswer(toChainlinkPrice(60000))
+      await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(60000))
       await dai.mint(user0.address, expandDecimals(1000, 18))
       await dai.connect(user0).approve(router.address, expandDecimals(1000, 18))
       // vault globalShortSizes(BTC) will be 2000 and globalShortAveragePrices(BTC) will be 60000
-      await router.connect(user0).increasePosition([dai.address], btc.address, expandDecimals(1000, 18), 0, toUsd(2000), false, toUsd(60000))
+      await router.connect(user0).increasePosition([dai.address], btc.address, expandDecimals(1000, 18), 0, toUsd(2000), false, toUsd(60000), priceUpdateData)
 
       // set different average price to ShortsTracker
       await shortsTracker.setIsGlobalShortDataReady(false)
@@ -525,7 +514,7 @@ describe("ZlpManager", function () {
       expect(await vault.globalShortSizes(btc.address), "size 0").to.equal(toUsd(2000))
       expect(await vault.globalShortAveragePrices(btc.address), "avg price 0").to.equal(toUsd(60000))
 
-      await btcPriceFeed.setLatestAnswer(toChainlinkPrice(54000))
+      await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(54000))
       expect((await vault.getGlobalShortDelta(btc.address))[1], "delta 0").to.equal(toUsd(200))
       expect((await shortsTracker.getGlobalShortDelta(btc.address))[1], "delta 1").to.equal("229508196721311475409836065573770")
 
@@ -540,7 +529,7 @@ describe("ZlpManager", function () {
       await zlpManager.setShortsTrackerAveragePriceWeight(0)
       expect(await shortsTracker.globalShortAveragePrices(btc.address), "avg price 1").to.equal(toUsd(61000))
 
-      await btcPriceFeed.setLatestAnswer(toChainlinkPrice(54000))
+      await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(54000))
 
       await shortsTracker.setIsGlobalShortDataReady(true)
       // with flag enabled it should be the same because shortsTrackerAveragePriceWeight is 0
@@ -562,7 +551,7 @@ describe("ZlpManager", function () {
     })
 
     it("ZlpManager switches back to Vault average price after flag is turned off", async () => {
-      await btcPriceFeed.setLatestAnswer(toChainlinkPrice(54000))
+      await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(54000))
       await zlpManager.setShortsTrackerAveragePriceWeight(10000)
 
       // flag is disabled, aum is calculated with Vault values

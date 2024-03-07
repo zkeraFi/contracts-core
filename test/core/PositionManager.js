@@ -5,21 +5,22 @@ const { expandDecimals, getBlockTime, increaseTime, mineBlock, reportGasUsed } =
 const { toChainlinkPrice } = require("../shared/chainlink")
 const { toUsd, toNormalizedPrice } = require("../shared/units")
 const { initVault, getBnbConfig, getBtcConfig, getDaiConfig, validateVaultBalance } = require("./Vault/helpers")
+const { priceFeedIds, priceUpdateData } = require("../shared/pyth")
 
 use(solidity)
 
-describe("PositionManager", function () {
+describe("PositionManagerV2", function () {
   const provider = waffle.provider
   const [wallet, user0, user1, user2, user3] = provider.getWallets()
   let vault
   let vaultUtils
   let vaultPriceFeed
-  let positionUtils
+  let PositionUtils_0_8_18
   let positionManager
   let usdg
   let router
-  let bnb
-  let bnbPriceFeed
+  let eth
+  let ethPriceFeed
   let btc
   let btcPriceFeed
   let dai
@@ -31,21 +32,22 @@ describe("PositionManager", function () {
 
   let zlpManager
   let zlp
-
+  let pyth
   beforeEach(async () => {
-    bnb = await deployContract("Token", [])
-    bnbPriceFeed = await deployContract("PriceFeed", [])
+    pyth = await deployContract("Pyth", [])
+    eth = await deployContract("Token", [])
+    ethPriceFeed = await deployContract("PythPriceFeedV2", [pyth.address,priceFeedIds.eth,10000])
 
     btc = await deployContract("Token", [])
-    btcPriceFeed = await deployContract("PriceFeed", [])
+    btcPriceFeed = await deployContract("PythPriceFeedV2", [pyth.address,priceFeedIds.btc,10000])
 
     dai = await deployContract("Token", [])
-    daiPriceFeed = await deployContract("PriceFeed", [])
+    daiPriceFeed = await deployContract("PythPriceFeedV2", [pyth.address,priceFeedIds.dai,10000])
 
     vault = await deployVault()
     await vault.setIsLeverageEnabled(false)
     usdg = await deployContract("USDG", [vault.address])
-    router = await deployContract("Router", [vault.address, usdg.address, bnb.address])
+    router = await deployContract("Router", [vault.address, usdg.address, eth.address,pyth.address])
     vaultPriceFeed = await deployVaultPriceFeed()
 
     const initVaultResult = await initVault(vault, router, usdg, vaultPriceFeed)
@@ -55,25 +57,27 @@ describe("PositionManager", function () {
     yieldTracker0 = await deployContract("YieldTracker", [usdg.address])
 
     await yieldTracker0.setDistributor(distributor0.address)
-    await distributor0.setDistribution([yieldTracker0.address], [1000], [bnb.address])
+    await distributor0.setDistribution([yieldTracker0.address], [1000], [eth.address])
 
-    await bnb.mint(distributor0.address, 5000)
+    await eth.mint(distributor0.address, 5000)
     await usdg.setYieldTrackers([yieldTracker0.address])
 
-    await vaultPriceFeed.setTokenConfig(bnb.address, bnbPriceFeed.address, 8, false)
+    await vaultPriceFeed.setTokenConfig(eth.address, ethPriceFeed.address, 8, false)
     await vaultPriceFeed.setTokenConfig(btc.address, btcPriceFeed.address, 8, false)
     await vaultPriceFeed.setTokenConfig(dai.address, daiPriceFeed.address, 8, false)
 
-    orderBook = await deployContract("OrderBook", [])
+    orderBook = await deployContract("OrderBookV2", [])
     const minExecutionFee = 500000;
     await orderBook.initialize(
       router.address,
       vault.address,
-      bnb.address,
+      eth.address,
       usdg.address,
       minExecutionFee,
-      expandDecimals(5, 30) // minPurchseTokenAmountUsd
+      expandDecimals(5, 30), // minPurchseTokenAmountUsd
+      pyth.address
     );
+    
     await router.addPlugin(orderBook.address)
     await router.connect(user0).approvePlugin(orderBook.address)
 
@@ -91,42 +95,44 @@ describe("PositionManager", function () {
     ])
     await zlpManager.setShortsTrackerAveragePriceWeight(10000)
 
-    positionUtils = await deployContract("PositionUtils", [])
+    PositionUtils_0_8_18 = await deployContract("PositionUtils_0_8_18", [])
 
-    positionManager = await deployContract("PositionManager", [
+    positionManager = await deployContract("PositionManagerV2", [
       vault.address,
       router.address,
       shortsTracker.address,
-      bnb.address,
+      eth.address,
       50,
-      orderBook.address
+      orderBook.address,
+      pyth.address
     ], {
       libraries: {
-        PositionUtils: positionUtils.address
+        PositionUtils_0_8_18: PositionUtils_0_8_18.address
       }
     })
     await shortsTracker.setHandler(positionManager.address, true)
-
-    await daiPriceFeed.setLatestAnswer(toChainlinkPrice(1))
+    await orderBook.setHandler(positionManager.address,true);
+    
+    await pyth.updatePrice(priceFeedIds.dai, toChainlinkPrice(1))
     await vault.setTokenConfig(...getDaiConfig(dai, daiPriceFeed))
 
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(60000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(60000))
     await vault.setTokenConfig(...getBtcConfig(btc, btcPriceFeed))
 
-    await bnbPriceFeed.setLatestAnswer(toChainlinkPrice(300))
-    await vault.setTokenConfig(...getBnbConfig(bnb, bnbPriceFeed))
+    await pyth.updatePrice(priceFeedIds.eth, toChainlinkPrice(300))
+    await vault.setTokenConfig(...getBnbConfig(eth, ethPriceFeed))
 
-    await bnb.mint(user1.address, expandDecimals(1000, 18))
-    await bnb.connect(user1).approve(router.address, expandDecimals(1000, 18))
-    await router.connect(user1).swap([bnb.address, usdg.address], expandDecimals(1000, 18), expandDecimals(29000, 18), user1.address)
+    await eth.mint(user1.address, expandDecimals(1000, 18))
+    await eth.connect(user1).approve(router.address, expandDecimals(1000, 18))
+    await router.connect(user1).swap([eth.address, usdg.address], expandDecimals(1000, 18), expandDecimals(29000, 18), user1.address, priceUpdateData)
 
     await dai.mint(user1.address, expandDecimals(500000, 18))
     await dai.connect(user1).approve(router.address, expandDecimals(300000, 18))
-    await router.connect(user1).swap([dai.address, usdg.address], expandDecimals(300000, 18), expandDecimals(29000, 18), user1.address)
+    await router.connect(user1).swap([dai.address, usdg.address], expandDecimals(300000, 18), expandDecimals(29000, 18), user1.address, priceUpdateData)
 
     await btc.mint(user1.address, expandDecimals(10, 8))
     await btc.connect(user1).approve(router.address, expandDecimals(10, 8))
-    await router.connect(user1).swap([btc.address, usdg.address], expandDecimals(10, 8), expandDecimals(59000, 18), user1.address)
+    await router.connect(user1).swap([btc.address, usdg.address], expandDecimals(10, 8), expandDecimals(59000, 18), user1.address, priceUpdateData)
 
     deployTimelockCallback = async () => {
       return await deployTimelock([
@@ -146,7 +152,7 @@ describe("PositionManager", function () {
   it("inits", async () => {
     expect(await positionManager.router(), 'router').eq(router.address)
     expect(await positionManager.vault(), 'vault').eq(vault.address)
-    expect(await positionManager.weth(), 'weth').eq(bnb.address)
+    expect(await positionManager.weth(), 'weth').eq(eth.address)
     expect(await positionManager.depositFee()).eq(50)
     expect(await positionManager.gov(), 'gov').eq(wallet.address)
   })
@@ -161,12 +167,12 @@ describe("PositionManager", function () {
   })
 
   it("approve", async () => {
-    await expect(positionManager.connect(user0).approve(bnb.address, user1.address, 10))
+    await expect(positionManager.connect(user0).approve(eth.address, user1.address, 10))
       .to.be.revertedWith("Governable: forbidden")
 
-    expect(await bnb.allowance(positionManager.address, user1.address)).eq(0)
-    await positionManager.connect(wallet).approve(bnb.address, user1.address, 10)
-    expect(await bnb.allowance(positionManager.address, user1.address)).eq(10)
+    expect(await eth.allowance(positionManager.address, user1.address)).eq(0)
+    await positionManager.connect(wallet).approve(eth.address, user1.address, 10)
+    expect(await eth.allowance(positionManager.address, user1.address)).eq(10)
   })
 
   it("setOrderKeeper", async () => {
@@ -227,7 +233,7 @@ describe("PositionManager", function () {
   it("increasePosition and decreasePosition", async () => {
     const timelock = await deployTimelockCallback()
 
-    await expect(positionManager.connect(user0).increasePosition([btc.address], btc.address, expandDecimals(1, 7), 0, 0, true, toUsd(100000)))
+    await expect(positionManager.connect(user0).increasePosition([btc.address], btc.address, expandDecimals(1, 7), 0, 0, true, toUsd(100000), priceUpdateData))
       .to.be.revertedWith("forbidden")
 
     await vault.setGov(timelock.address)
@@ -238,11 +244,11 @@ describe("PositionManager", function () {
     await btc.mint(user0.address, expandDecimals(3, 8))
 
     await positionManager.setInLegacyMode(true)
-    await expect(positionManager.connect(user0).increasePosition([btc.address], btc.address, expandDecimals(1, 7), 0, 0, true, toUsd(100000)))
+    await expect(positionManager.connect(user0).increasePosition([btc.address], btc.address, expandDecimals(1, 7), 0, 0, true, toUsd(100000), priceUpdateData))
       .to.be.revertedWith("Timelock: forbidden")
 
     // path length should be 1 or 2
-    await expect(positionManager.connect(user0).increasePosition([btc.address, bnb.address, dai.address], btc.address, expandDecimals(1, 7), 0, 0, true, toUsd(100000)))
+    await expect(positionManager.connect(user0).increasePosition([btc.address, eth.address, dai.address], btc.address, expandDecimals(1, 7), 0, 0, true, toUsd(100000), priceUpdateData))
       .to.be.revertedWith("invalid _path.length")
 
     await timelock.setContractHandler(positionManager.address, true)
@@ -252,14 +258,14 @@ describe("PositionManager", function () {
     await dai.connect(user0).approve(router.address, expandDecimals(20000, 18))
 
     // too low desired price
-    await expect(positionManager.connect(user0).increasePosition([dai.address, btc.address], btc.address, expandDecimals(200, 18), "332333", toUsd(2000), true, toNormalizedPrice(50000)))
+    await expect(positionManager.connect(user0).increasePosition([dai.address, btc.address], btc.address, expandDecimals(200, 18), "332333", toUsd(2000), true, toNormalizedPrice(50000), priceUpdateData))
       .to.be.revertedWith("markPrice > price")
 
     // too big minOut
-    await expect(positionManager.connect(user0).increasePosition([dai.address, btc.address], btc.address, expandDecimals(200, 18), "1332333", toUsd(2000), true, toNormalizedPrice(60000)))
+    await expect(positionManager.connect(user0).increasePosition([dai.address, btc.address], btc.address, expandDecimals(200, 18), "1332333", toUsd(2000), true, toNormalizedPrice(60000), priceUpdateData))
       .to.be.revertedWith("insufficient amountOut")
 
-    await positionManager.connect(user0).increasePosition([dai.address, btc.address], btc.address, expandDecimals(200, 18), "332333", toUsd(2000), true, toNormalizedPrice(60000))
+    await positionManager.connect(user0).increasePosition([dai.address, btc.address], btc.address, expandDecimals(200, 18), "332333", toUsd(2000), true, toNormalizedPrice(60000), priceUpdateData)
 
     let position = await vault.getPosition(user0.address, btc.address, btc.address, true)
     expect(position[0]).eq(toUsd(2000)) // size
@@ -272,7 +278,7 @@ describe("PositionManager", function () {
 
     // deposit
     // should deduct extra fee
-    await positionManager.connect(user0).increasePosition([btc.address], btc.address, "500000", 0, 0, true, toUsd(60000))
+    await positionManager.connect(user0).increasePosition([btc.address], btc.address, "500000", 0, 0, true, toUsd(60000), priceUpdateData)
 
     position = await vault.getPosition(user0.address, btc.address, btc.address, true)
     expect(position[0]).eq(toUsd(2000)) // size
@@ -291,44 +297,44 @@ describe("PositionManager", function () {
 
     // leverage is decreased because of big amount of collateral
     // should deduct extra fee
-    await positionManager.connect(user0).increasePosition([btc.address], btc.address, "500000", 0, toUsd(300), true, toUsd(100000))
+    await positionManager.connect(user0).increasePosition([btc.address], btc.address, "500000", 0, toUsd(300), true, toUsd(100000), priceUpdateData)
 
     position = await vault.getPosition(user0.address, btc.address, btc.address, true)
     expect(position[0]).eq(toUsd(2300)) // size
     expect(position[1]).eq("794099800000000000000000000000000") // collateral, 794.0998, 794.0998 - 495.8998 => 298.2, 1.5 for collateral fee, 0.3 for size delta fee
 
     // regular position increase, no extra fee applied
-    await positionManager.connect(user0).increasePosition([btc.address], btc.address, "500000", 0, toUsd(1000), true, toUsd(100000))
+    await positionManager.connect(user0).increasePosition([btc.address], btc.address, "500000", 0, toUsd(1000), true, toUsd(100000), priceUpdateData)
     position = await vault.getPosition(user0.address, btc.address, btc.address, true)
     expect(position[0]).eq(toUsd(3300)) // size
     expect(position[1]).eq("1093099800000000000000000000000000") // collateral, 1093.0998, 1093.0998 - 794.0998 => 299, 1.0 for size delta fee
 
     await positionManager.setInLegacyMode(false)
-    await expect(positionManager.connect(user0).decreasePosition(btc.address, btc.address, position[1], position[0], true, user0.address, 0))
+    await expect(positionManager.connect(user0).decreasePosition(btc.address, btc.address, position[1], position[0], true, user0.address, 0, priceUpdateData))
       .to.be.revertedWith("forbidden")
     await positionManager.setInLegacyMode(true)
 
     expect(await btc.balanceOf(user0.address)).to.be.equal("298500000")
-    await positionManager.connect(user0).decreasePosition(btc.address, btc.address, position[1], position[0], true, user0.address, 0)
+    await positionManager.connect(user0).decreasePosition(btc.address, btc.address, position[1], position[0], true, user0.address, 0, priceUpdateData)
     expect(await btc.balanceOf(user0.address)).to.be.equal("300316333")
     position = await vault.getPosition(user0.address, btc.address, btc.address, true)
     expect(position[0]).eq(0) // size
     expect(position[1]).eq(0) // collateral
 
     await positionManager.setInLegacyMode(false)
-    await expect(positionManager.connect(user0).increasePosition([dai.address, btc.address], btc.address, expandDecimals(200, 18), "332333", toUsd(2000), true, toNormalizedPrice(60000))).to.be.revertedWith("forbidden")
+    await expect(positionManager.connect(user0).increasePosition([dai.address, btc.address], btc.address, expandDecimals(200, 18), "332333", toUsd(2000), true, toNormalizedPrice(60000), priceUpdateData)).to.be.revertedWith("forbidden")
 
     // partners should have access in non-legacy mode
     expect(await positionManager.isPartner(user0.address)).to.be.false
     await positionManager.setPartner(user0.address, true)
     expect(await positionManager.isPartner(user0.address)).to.be.true
-    await positionManager.connect(user0).increasePosition([dai.address, btc.address], btc.address, expandDecimals(200, 18), "332333", toUsd(2000), true, toNormalizedPrice(60000))
+    await positionManager.connect(user0).increasePosition([dai.address, btc.address], btc.address, expandDecimals(200, 18), "332333", toUsd(2000), true, toNormalizedPrice(60000), priceUpdateData)
   })
 
   it("increasePositionETH and decreasePositionETH", async () => {
     const timelock = await deployTimelockCallback()
 
-    await expect(positionManager.connect(user0).increasePositionETH([bnb.address], bnb.address, 0, 0, true, toUsd(100000), { value: expandDecimals(1, 18) }))
+    await expect(positionManager.connect(user0).increasePositionETH([eth.address], eth.address, 0, 0, true, toUsd(100000), priceUpdateData, { value: expandDecimals(1, 18) }))
       .to.be.revertedWith("PositionManager: forbidden")
 
     await vault.setGov(timelock.address)
@@ -336,15 +342,15 @@ describe("PositionManager", function () {
     await router.connect(user0).approvePlugin(positionManager.address)
 
     await positionManager.setInLegacyMode(true)
-    await expect(positionManager.connect(user0).increasePositionETH([bnb.address], bnb.address, 0, 0, true, toUsd(100000), { value: expandDecimals(1, 18) }))
+    await expect(positionManager.connect(user0).increasePositionETH([eth.address], eth.address, 0, 0, true, toUsd(100000), priceUpdateData, { value: expandDecimals(1, 18) }))
       .to.be.revertedWith("Timelock: forbidden")
 
     // path[0] should always be weth
-    await expect(positionManager.connect(user0).increasePositionETH([btc.address], bnb.address, 0, 0, true, toUsd(100000), { value: expandDecimals(1, 18) }))
+    await expect(positionManager.connect(user0).increasePositionETH([btc.address], eth.address, 0, 0, true, toUsd(100000), priceUpdateData, { value: expandDecimals(1, 18) }))
       .to.be.revertedWith("PositionManager: invalid _path")
 
     // path length should be 1 or 2
-    await expect(positionManager.connect(user0).increasePositionETH([bnb.address, dai.address, btc.address], bnb.address, 0, 0, true, toUsd(100000), { value: expandDecimals(1, 18) }))
+    await expect(positionManager.connect(user0).increasePositionETH([eth.address, dai.address, btc.address], eth.address, 0, 0, true, toUsd(100000), priceUpdateData, { value: expandDecimals(1, 18) }))
       .to.be.revertedWith("PositionManager: invalid _path.length")
 
     await timelock.setContractHandler(positionManager.address, true)
@@ -354,59 +360,59 @@ describe("PositionManager", function () {
     await dai.connect(user0).approve(router.address, expandDecimals(20000, 18))
 
     // too low desired price
-    await expect(positionManager.connect(user0).increasePositionETH([bnb.address], bnb.address, 0, toUsd(2000), true, toUsd(200), { value: expandDecimals(1, 18) }))
+    await expect(positionManager.connect(user0).increasePositionETH([eth.address], eth.address, 0, toUsd(2000), true, toUsd(200), priceUpdateData, { value: expandDecimals(1, 18) }))
       .to.be.revertedWith("markPrice > price")
 
-    position = await vault.getPosition(user0.address, bnb.address, bnb.address, true)
+    position = await vault.getPosition(user0.address, eth.address, eth.address, true)
 
-    await positionManager.connect(user0).increasePositionETH([bnb.address], bnb.address, 0, toUsd(2000), true, toUsd(100000), { value: expandDecimals(1, 18) })
-    position = await vault.getPosition(user0.address, bnb.address, bnb.address, true)
+    await positionManager.connect(user0).increasePositionETH([eth.address], eth.address, 0, toUsd(2000), true, toUsd(100000), priceUpdateData, { value: expandDecimals(1, 18) })
+    position = await vault.getPosition(user0.address, eth.address, eth.address, true)
     expect(position[0]).eq(toUsd(2000))
     expect(position[1]).eq("298000000000000000000000000000000")
 
     // deposit
     // should deduct extra fee
-    await positionManager.connect(user0).increasePositionETH([bnb.address], bnb.address, 0, 0, true, toUsd(60000), { value: expandDecimals(1, 18) })
-    position = await vault.getPosition(user0.address, bnb.address, bnb.address, true)
+    await positionManager.connect(user0).increasePositionETH([eth.address], eth.address, 0, 0, true, toUsd(60000), priceUpdateData, { value: expandDecimals(1, 18) })
+    position = await vault.getPosition(user0.address, eth.address, eth.address, true)
     expect(position[0]).eq(toUsd(2000)) // size
     expect(position[1]).eq("596500000000000000000000000000000") // collateral, 298 + 300 - 1.5 (300 * 0.5%) = 596.5
 
-    expect(await bnb.balanceOf(positionManager.address)).eq(expandDecimals(5, 15)) // 1 * 0.5%
+    expect(await eth.balanceOf(positionManager.address)).eq(expandDecimals(5, 15)) // 1 * 0.5%
 
     // leverage is decreased because of big amount of collateral
     // should deduct extra fee
-    await positionManager.connect(user0).increasePositionETH([bnb.address], bnb.address, 0, toUsd(300), true, toUsd(60000), { value: expandDecimals(1, 18) })
-    position = await vault.getPosition(user0.address, bnb.address, bnb.address, true)
+    await positionManager.connect(user0).increasePositionETH([eth.address], eth.address, 0, toUsd(300), true, toUsd(60000), priceUpdateData, { value: expandDecimals(1, 18) })
+    position = await vault.getPosition(user0.address, eth.address, eth.address, true)
     expect(position[0]).eq(toUsd(2300)) // size
     expect(position[1]).eq("894700000000000000000000000000000") // collateral, 596.5 + 300 - 0.3 - 1.5 = 894.7
 
     // regular position increase, no extra fee applied
-    await positionManager.connect(user0).increasePositionETH([bnb.address], bnb.address, 0, toUsd(1000), true, toUsd(60000), { value: expandDecimals(1, 18) })
-    position = await vault.getPosition(user0.address, bnb.address, bnb.address, true)
+    await positionManager.connect(user0).increasePositionETH([eth.address], eth.address, 0, toUsd(1000), true, toUsd(60000), priceUpdateData, { value: expandDecimals(1, 18) })
+    position = await vault.getPosition(user0.address, eth.address, eth.address, true)
     expect(position[0]).eq(toUsd(3300)) // size
     expect(position[1]).eq("1193700000000000000000000000000000") // collateral, 894.7 + 300 - 1 = 1193.7
 
     await positionManager.setInLegacyMode(false)
-    await expect(positionManager.connect(user0).decreasePositionETH(bnb.address, bnb.address, position[1], position[0], true, user0.address, 0))
+    await expect(positionManager.connect(user0).decreasePositionETH(eth.address, eth.address, position[1], position[0], true, user0.address, 0, priceUpdateData))
       .to.be.revertedWith("PositionManager: forbidden")
     await positionManager.setInLegacyMode(true)
 
     const balanceBefore = await provider.getBalance(user0.address)
-    await positionManager.connect(user0).decreasePositionETH(bnb.address, bnb.address, position[1], position[0], true, user0.address, 0)
+    await positionManager.connect(user0).decreasePositionETH(eth.address, eth.address, position[1], position[0], true, user0.address, 0, priceUpdateData)
     const balanceAfter = await provider.getBalance(user0.address)
     expect(balanceAfter.gt(balanceBefore))
-    position = await vault.getPosition(user0.address, bnb.address, bnb.address, true)
+    position = await vault.getPosition(user0.address, eth.address, eth.address, true)
     expect(position[0]).eq(0) // size
     expect(position[1]).eq(0) // collateral
 
     await positionManager.setInLegacyMode(false)
-    await expect(positionManager.connect(user0).increasePositionETH([bnb.address], bnb.address, 0, toUsd(1000), true, toUsd(60000), { value: expandDecimals(1, 18) })).to.be.revertedWith("PositionManager: forbidden")
+    await expect(positionManager.connect(user0).increasePositionETH([eth.address], eth.address, 0, toUsd(1000), true, toUsd(60000), priceUpdateData, { value: expandDecimals(1, 18) })).to.be.revertedWith("PositionManager: forbidden")
 
     // partners should have access in non-legacy mode
     expect(await positionManager.isPartner(user0.address)).to.be.false
     await positionManager.setPartner(user0.address, true)
     expect(await positionManager.isPartner(user0.address)).to.be.true
-    await positionManager.connect(user0).increasePositionETH([bnb.address], bnb.address, 0, toUsd(1000), true, toUsd(60000), { value: expandDecimals(1, 18) })
+    await positionManager.connect(user0).increasePositionETH([eth.address], eth.address, 0, toUsd(1000), true, toUsd(60000), priceUpdateData, { value: expandDecimals(1, 18) })
   })
 
   it("increasePositionETH with swap", async () => {
@@ -419,13 +425,13 @@ describe("PositionManager", function () {
 
     await timelock.setShouldToggleIsLeverageEnabled(true)
     await positionManager.setInLegacyMode(true)
-    await positionManager.connect(user0).increasePositionETH([bnb.address, btc.address], btc.address, 0, toUsd(2000), true, toUsd(60000), { value: expandDecimals(1, 18) })
+    await positionManager.connect(user0).increasePositionETH([eth.address, btc.address], btc.address, 0, toUsd(2000), true, toUsd(60000), priceUpdateData, { value: expandDecimals(1, 18) })
 
     let position = await vault.getPosition(user0.address, btc.address, btc.address, true)
     expect(position[0]).eq(toUsd(2000)) // size
     expect(position[1]).eq("297100000000000000000000000000000") // collateral, 297.1, 300 - 297.1 => 2.9, 0.9 fee for swap, 2.0 fee for size delta
 
-    await positionManager.connect(user0).increasePositionETH([bnb.address, btc.address], btc.address, 0, 0, true, toUsd(60000), { value: expandDecimals(1, 18) })
+    await positionManager.connect(user0).increasePositionETH([eth.address, btc.address], btc.address, 0, 0, true, toUsd(60000), priceUpdateData, { value: expandDecimals(1, 18) })
 
     position = await vault.getPosition(user0.address, btc.address, btc.address, true)
     expect(position[0]).eq(toUsd(2000)) // size
@@ -445,7 +451,7 @@ describe("PositionManager", function () {
 
     await timelock.setShouldToggleIsLeverageEnabled(true)
     await positionManager.setInLegacyMode(true)
-    await positionManager.connect(user0).increasePositionETH([bnb.address, dai.address], btc.address, 0, toUsd(3000), false, 0, { value: expandDecimals(1, 18) })
+    await positionManager.connect(user0).increasePositionETH([eth.address, dai.address], btc.address, 0, toUsd(3000), false, 0, priceUpdateData, { value: expandDecimals(1, 18) })
 
     let position = await vault.getPosition(user0.address, dai.address, btc.address, false)
     expect(position[0]).eq(toUsd(3000))
@@ -453,9 +459,9 @@ describe("PositionManager", function () {
 
     await btc.mint(user0.address, expandDecimals(1, 8))
     await btc.connect(user0).approve(router.address, expandDecimals(1, 8))
-    await positionManager.connect(user0).increasePosition([btc.address, dai.address], bnb.address, "500000", 0, toUsd(3000), false, 0)
+    await positionManager.connect(user0).increasePosition([btc.address, dai.address], eth.address, "500000", 0, toUsd(3000), false, 0, priceUpdateData)
 
-    position = await vault.getPosition(user0.address, dai.address, bnb.address, false)
+    position = await vault.getPosition(user0.address, dai.address, eth.address, false)
     expect(position[0]).eq(toUsd(3000))
     expect(position[1]).eq("296100000000000000000000000000000")
   })
@@ -474,17 +480,17 @@ describe("PositionManager", function () {
     await dai.mint(user0.address, expandDecimals(20000, 18))
     await dai.connect(user0).approve(router.address, expandDecimals(20000, 18))
 
-    await bnb.deposit({ value: expandDecimals(10, 18) })
+    await eth.deposit({ value: expandDecimals(10, 18) })
 
     // BNB Long
-    await positionManager.connect(user0).increasePosition([dai.address, bnb.address], bnb.address, expandDecimals(200, 18), 0, toUsd(2000), true, toNormalizedPrice(60000))
+    await positionManager.connect(user0).increasePosition([dai.address, eth.address], eth.address, expandDecimals(200, 18), 0, toUsd(2000), true, toNormalizedPrice(60000), priceUpdateData)
 
-    let position = await vault.getPosition(user0.address, bnb.address, bnb.address, true)
+    let position = await vault.getPosition(user0.address, eth.address, eth.address, true)
     expect(position[0]).eq(toUsd(2000)) // size
 
     let params = [
-      [bnb.address, dai.address], // path
-      bnb.address, // indexToken
+      [eth.address, dai.address], // path
+      eth.address, // indexToken
       position[1], // collateralDelta
       position[0], // sizeDelta
       true, // isLong
@@ -493,37 +499,37 @@ describe("PositionManager", function () {
     ]
 
     await positionManager.setInLegacyMode(false)
-    await expect(positionManager.connect(user0).decreasePositionAndSwap(...params, expandDecimals(200, 18)))
+    await expect(positionManager.connect(user0).decreasePositionAndSwap(...params, expandDecimals(200, 18), priceUpdateData))
       .to.be.revertedWith("PositionManager: forbidden")
     await positionManager.setInLegacyMode(true)
 
     // too high minOut
-    await expect(positionManager.connect(user0).decreasePositionAndSwap(...params, expandDecimals(200, 18)))
+    await expect(positionManager.connect(user0).decreasePositionAndSwap(...params, expandDecimals(200, 18), priceUpdateData))
       .to.be.revertedWith("insufficient amountOut")
 
     // invalid path[0] == path[1]
-    await expect(positionManager.connect(user0).decreasePositionAndSwap([bnb.address, bnb.address], ...params.slice(1), 0))
+    await expect(positionManager.connect(user0).decreasePositionAndSwap([eth.address, eth.address], ...params.slice(1), 0, priceUpdateData))
       .to.be.revertedWith("Vault: invalid tokens")
 
     // path.length > 2
-    await expect(positionManager.connect(user0).decreasePositionAndSwap([bnb.address, dai.address, bnb.address], ...params.slice(1), 0))
+    await expect(positionManager.connect(user0).decreasePositionAndSwap([eth.address, dai.address, eth.address], ...params.slice(1), 0, priceUpdateData))
       .to.be.revertedWith("PositionManager: invalid _path.length")
 
     let daiBalance = await dai.balanceOf(user0.address)
-    await positionManager.connect(user0).decreasePositionAndSwap(...params, 0)
+    await positionManager.connect(user0).decreasePositionAndSwap(...params, 0, priceUpdateData)
     expect(await dai.balanceOf(user0.address)).to.be.equal(daiBalance.add("194813799999999999601"))
 
-    position = await vault.getPosition(user0.address, bnb.address, bnb.address, true)
+    position = await vault.getPosition(user0.address, eth.address, eth.address, true)
     expect(position[0]).eq(0) // size
 
     // BTC Short
-    await positionManager.connect(user0).increasePosition([dai.address], btc.address, expandDecimals(200, 18), 0, toUsd(2000), false, toNormalizedPrice(60000))
+    await positionManager.connect(user0).increasePosition([dai.address], btc.address, expandDecimals(200, 18), 0, toUsd(2000), false, toNormalizedPrice(60000), priceUpdateData)
 
     position = await vault.getPosition(user0.address, dai.address, btc.address, false)
     expect(position[0]).eq(toUsd(2000)) // size
 
     params = [
-      [dai.address, bnb.address], // path
+      [dai.address, eth.address], // path
       btc.address, // indexToken
       position[1], // collateralDelta
       position[0], // sizeDelta
@@ -532,22 +538,22 @@ describe("PositionManager", function () {
       toUsd(60000) // price
     ]
     await positionManager.setInLegacyMode(false)
-    await expect(positionManager.connect(user0).decreasePositionAndSwapETH(...params, expandDecimals(200, 18)))
+    await expect(positionManager.connect(user0).decreasePositionAndSwapETH(...params, expandDecimals(200, 18), priceUpdateData))
       .to.be.revertedWith("PositionManager: forbidden")
     await positionManager.setInLegacyMode(true)
 
-    await expect(positionManager.connect(user0).decreasePositionAndSwapETH(...params, expandDecimals(200, 18)))
+    await expect(positionManager.connect(user0).decreasePositionAndSwapETH(...params, expandDecimals(200, 18), priceUpdateData))
       .to.be.revertedWith("insufficient amountOut")
 
-    await expect(positionManager.connect(user0).decreasePositionAndSwapETH([dai.address, dai.address], ...params.slice(1), 0))
+    await expect(positionManager.connect(user0).decreasePositionAndSwapETH([dai.address, dai.address], ...params.slice(1), 0, priceUpdateData))
       .to.be.revertedWith("PositionManager: invalid _path")
 
-    await expect(positionManager.connect(user0).decreasePositionAndSwapETH([dai.address, btc.address, bnb.address], ...params.slice(1), 0))
+    await expect(positionManager.connect(user0).decreasePositionAndSwapETH([dai.address, btc.address, eth.address], ...params.slice(1), 0, priceUpdateData))
       .to.be.revertedWith("PositionManager: invalid _path.length")
 
-    const bnbBalance = await provider.getBalance(user0.address)
-    await positionManager.connect(user0).decreasePositionAndSwapETH(...params, 0)
-    expect((await provider.getBalance(user0.address)).gt(bnbBalance)).to.be.true
+    const ethBalance = await provider.getBalance(user0.address)
+    await positionManager.connect(user0).decreasePositionAndSwapETH(...params, 0, priceUpdateData)
+    expect((await provider.getBalance(user0.address)).gt(ethBalance)).to.be.true
 
     position = await vault.getPosition(user0.address, dai.address, btc.address, false)
     expect(position[0]).eq(0) // size
@@ -567,7 +573,7 @@ describe("PositionManager", function () {
     await timelock.setShouldToggleIsLeverageEnabled(true)
     await positionManager.setInLegacyMode(true)
 
-    await positionManager.connect(user0).increasePositionETH([bnb.address, dai.address], btc.address, 0, toUsd(3000), false, 0, { value: expandDecimals(1, 18) })
+    await positionManager.connect(user0).increasePositionETH([eth.address, dai.address], btc.address, 0, toUsd(3000), false, 0, priceUpdateData, { value: expandDecimals(1, 18) })
 
     let position = await vault.getPosition(user0.address, dai.address, btc.address, false)
     expect(position[0]).eq(toUsd(3000))
@@ -575,7 +581,7 @@ describe("PositionManager", function () {
 
     await dai.mint(user0.address, expandDecimals(200, 18))
     await dai.connect(user0).approve(router.address, expandDecimals(200, 18))
-    await positionManager.connect(user0).increasePosition([dai.address], btc.address, expandDecimals(200, 18), 0, 0, false, 0)
+    await positionManager.connect(user0).increasePosition([dai.address], btc.address, expandDecimals(200, 18), 0, 0, false, 0, priceUpdateData)
 
     position = await vault.getPosition(user0.address, dai.address, btc.address, false)
     expect(position[0]).eq(toUsd(3000))
@@ -598,12 +604,12 @@ describe("PositionManager", function () {
     )
     const orderIndex = (await orderBook.swapOrdersIndex(user0.address)) - 1
 
-    await expect(positionManager.connect(user1).executeSwapOrder(user0.address, orderIndex, user1.address))
+    await expect(positionManager.connect(user1).executeSwapOrder(user0.address, orderIndex, user1.address, priceUpdateData))
       .to.be.revertedWith("PositionManager: forbidden")
 
     const balanceBefore = await provider.getBalance(user1.address)
     await positionManager.setOrderKeeper(user1.address, true)
-    await positionManager.connect(user1).executeSwapOrder(user0.address, orderIndex, user1.address)
+    await positionManager.connect(user1).executeSwapOrder(user0.address, orderIndex, user1.address, priceUpdateData)
     expect((await orderBook.swapOrders(user0.address, orderIndex))[0]).to.be.equal(ethers.constants.AddressZero)
     const balanceAfter = await provider.getBalance(user1.address)
     expect(balanceAfter.gt(balanceBefore)).to.be.true
@@ -637,6 +643,7 @@ describe("PositionManager", function () {
         true, // triggerAboveThreshold
         executionFee,
         false, // shouldWrap
+        priceUpdateData,
         { value: executionFee }
       );
     }
@@ -644,13 +651,13 @@ describe("PositionManager", function () {
     await createIncreaseOrder()
     let orderIndex = (await orderBook.increaseOrdersIndex(user0.address)) - 1
     expect(await positionManager.isOrderKeeper(user1.address)).to.be.false
-    await expect(positionManager.connect(user1).executeIncreaseOrder(user0.address, orderIndex, user1.address))
+    await expect(positionManager.connect(user1).executeIncreaseOrder(user0.address, orderIndex, user1.address, priceUpdateData))
       .to.be.revertedWith("PositionManager: forbidden")
 
     const balanceBefore = await provider.getBalance(user1.address)
     await positionManager.setOrderKeeper(user1.address, true)
     expect(await positionManager.isOrderKeeper(user1.address)).to.be.true
-    await positionManager.connect(user1).executeIncreaseOrder(user0.address, orderIndex, user1.address)
+    await positionManager.connect(user1).executeIncreaseOrder(user0.address, orderIndex, user1.address, priceUpdateData)
     expect((await orderBook.increaseOrders(user0.address, orderIndex))[0]).to.be.equal(ethers.constants.AddressZero)
     const balanceAfter = await provider.getBalance(user1.address)
     expect(balanceAfter.gt(balanceBefore)).to.be.true
@@ -665,26 +672,26 @@ describe("PositionManager", function () {
     await createIncreaseOrder(expandDecimals(100, 18), 0)
     orderIndex = (await orderBook.increaseOrdersIndex(user0.address)) - 1
     const badOrderIndex1 = orderIndex
-    await expect(positionManager.connect(user1).executeIncreaseOrder(user0.address, orderIndex, user1.address))
+    await expect(positionManager.connect(user1).executeIncreaseOrder(user0.address, orderIndex, user1.address, priceUpdateData))
       .to.be.revertedWith("PositionManager: long deposit")
 
     // should block if leverage is decreased
     await createIncreaseOrder(expandDecimals(100, 18), toUsd(100))
     orderIndex = (await orderBook.increaseOrdersIndex(user0.address)) - 1
     const badOrderIndex2 = orderIndex
-    await expect(positionManager.connect(user1).executeIncreaseOrder(user0.address, orderIndex, user1.address))
+    await expect(positionManager.connect(user1).executeIncreaseOrder(user0.address, orderIndex, user1.address, priceUpdateData))
       .to.be.revertedWith("PositionManager: long leverage decrease")
 
     // should not block if leverage is not decreased
     await createIncreaseOrder()
     orderIndex = (await orderBook.increaseOrdersIndex(user0.address)) - 1
-    await positionManager.connect(user1).executeIncreaseOrder(user0.address, orderIndex, user1.address)
+    await positionManager.connect(user1).executeIncreaseOrder(user0.address, orderIndex, user1.address, priceUpdateData)
 
     await positionManager.setShouldValidateIncreaseOrder(false)
     expect(await positionManager.shouldValidateIncreaseOrder()).to.be.false
 
-    await positionManager.connect(user1).executeIncreaseOrder(user0.address, badOrderIndex1, user1.address)
-    await positionManager.connect(user1).executeIncreaseOrder(user0.address, badOrderIndex2, user1.address)
+    await positionManager.connect(user1).executeIncreaseOrder(user0.address, badOrderIndex1, user1.address, priceUpdateData)
+    await positionManager.connect(user1).executeIncreaseOrder(user0.address, badOrderIndex2, user1.address, priceUpdateData)
 
     // shorts
     await positionManager.setShouldValidateIncreaseOrder(true)
@@ -692,16 +699,16 @@ describe("PositionManager", function () {
 
     await createIncreaseOrder(expandDecimals(1000, 18), toUsd(2000), false)
     orderIndex = (await orderBook.increaseOrdersIndex(user0.address)) - 1
-    await positionManager.connect(user1).executeIncreaseOrder(user0.address, orderIndex, user1.address)
+    await positionManager.connect(user1).executeIncreaseOrder(user0.address, orderIndex, user1.address, priceUpdateData)
 
     // should not block deposits for shorts
     await createIncreaseOrder(expandDecimals(100, 18), 0, false)
     orderIndex = (await orderBook.increaseOrdersIndex(user0.address)) - 1
-    await positionManager.connect(user1).executeIncreaseOrder(user0.address, orderIndex, user1.address)
+    await positionManager.connect(user1).executeIncreaseOrder(user0.address, orderIndex, user1.address, priceUpdateData)
 
     await createIncreaseOrder(expandDecimals(100, 18), toUsd(100), false)
     orderIndex = (await orderBook.increaseOrdersIndex(user0.address)) - 1
-    await positionManager.connect(user1).executeIncreaseOrder(user0.address, orderIndex, user1.address)
+    await positionManager.connect(user1).executeIncreaseOrder(user0.address, orderIndex, user1.address, priceUpdateData)
   })
 
   it("executeDecreaseOrder", async () => {
@@ -713,15 +720,15 @@ describe("PositionManager", function () {
     await router.addPlugin(positionManager.address)
     await router.connect(user0).approvePlugin(positionManager.address)
 
-    await positionManager.connect(user0).increasePositionETH([bnb.address], bnb.address, 0, toUsd(1000), true, toUsd(100000), { value: expandDecimals(1, 18) })
+    await positionManager.connect(user0).increasePositionETH([eth.address], eth.address, 0, toUsd(1000), true, toUsd(100000), priceUpdateData, { value: expandDecimals(1, 18) })
 
-    let position = await vault.getPosition(user0.address, bnb.address, bnb.address, true)
+    let position = await vault.getPosition(user0.address, eth.address, eth.address, true)
 
     const executionFee = expandDecimals(1, 17) // 0.1 WETH
     await orderBook.connect(user0).createDecreaseOrder(
-      bnb.address,
+      eth.address,
       position[0],
-      bnb.address,
+      eth.address,
       position[1],
       true,
       toUsd(290),
@@ -730,17 +737,17 @@ describe("PositionManager", function () {
     );
 
     const orderIndex = (await orderBook.decreaseOrdersIndex(user0.address)) - 1
-    await expect(positionManager.connect(user1).executeDecreaseOrder(user0.address, orderIndex, user1.address))
+    await expect(positionManager.connect(user1).executeDecreaseOrder(user0.address, orderIndex, user1.address, priceUpdateData))
       .to.be.revertedWith("PositionManager: forbidden")
 
     const balanceBefore = await provider.getBalance(user1.address)
     await positionManager.setOrderKeeper(user1.address, true)
-    await positionManager.connect(user1).executeDecreaseOrder(user0.address, orderIndex, user1.address)
+    await positionManager.connect(user1).executeDecreaseOrder(user0.address, orderIndex, user1.address, priceUpdateData)
     expect((await orderBook.decreaseOrders(user0.address, orderIndex))[0]).to.be.equal(ethers.constants.AddressZero)
     const balanceAfter = await provider.getBalance(user1.address)
     expect(balanceAfter.gt(balanceBefore)).to.be.true
 
-    position = await vault.getPosition(user0.address, bnb.address, bnb.address, true)
+    position = await vault.getPosition(user0.address, eth.address, eth.address, true)
     expect(position[0]).to.be.equal(0)
   })
 
@@ -751,25 +758,25 @@ describe("PositionManager", function () {
     await timelock.setShouldToggleIsLeverageEnabled(true)
 
     expect(await positionManager.isLiquidator(user1.address)).to.be.false
-    await expect(positionManager.connect(user1).liquidatePosition(user1.address, bnb.address, bnb.address, true, user0.address))
+    await expect(positionManager.connect(user1).liquidatePosition(user1.address, eth.address, eth.address, true, user0.address, priceUpdateData))
       .to.be.revertedWith("PositionManager: forbidden")
 
     await positionManager.setInLegacyMode(true)
     await router.addPlugin(positionManager.address)
     await router.connect(user0).approvePlugin(positionManager.address)
 
-    await positionManager.connect(user0).increasePositionETH([bnb.address], bnb.address, 0, toUsd(1000), true, toUsd(100000), { value: expandDecimals(1, 18) })
-    let position = await vault.getPosition(user0.address, bnb.address, bnb.address, true)
+    await positionManager.connect(user0).increasePositionETH([eth.address], eth.address, 0, toUsd(1000), true, toUsd(100000), priceUpdateData, { value: expandDecimals(1, 18) })
+    let position = await vault.getPosition(user0.address, eth.address, eth.address, true)
 
-    await bnbPriceFeed.setLatestAnswer(toChainlinkPrice(200))
+    await pyth.updatePrice(priceFeedIds.eth, toChainlinkPrice(200))
 
-    await expect(positionManager.connect(user1).liquidatePosition(user0.address, bnb.address, bnb.address, true, user1.address))
+    await expect(positionManager.connect(user1).liquidatePosition(user0.address, eth.address, eth.address, true, user1.address, priceUpdateData))
       .to.be.revertedWith("PositionManager: forbidden")
 
     await positionManager.setLiquidator(user1.address, true)
 
     expect(await positionManager.isLiquidator(user1.address)).to.be.true
-    await positionManager.connect(user1).liquidatePosition(user0.address, bnb.address, bnb.address, true, user1.address)
+    await positionManager.connect(user1).liquidatePosition(user0.address, eth.address, eth.address, true, user1.address, priceUpdateData)
   })
 })
 
@@ -779,12 +786,12 @@ describe("PositionManager next short data calculations", function () {
   let vault
   let vaultUtils
   let vaultPriceFeed
-  let positionUtils
+  let PositionUtils_0_8_18
   let positionManager
   let usdg
   let router
-  let bnb
-  let bnbPriceFeed
+  let eth
+  let ethPriceFeed
   let btc
   let btcPriceFeed
   let dai
@@ -798,18 +805,21 @@ describe("PositionManager next short data calculations", function () {
   let zlpManager
   let zlp
 
+  let pyth
+
   beforeEach(async () => {
+    pyth = await deployContract("Pyth", [])
     let tmp = await Promise.all([
       deployContract("Token", []),
-      deployContract("PriceFeed", []),
+      deployContract("PythPriceFeedV2", [pyth.address,priceFeedIds.eth,10000]),
       deployContract("Token", []),
-      deployContract("PriceFeed", []),
+      deployContract("PythPriceFeedV2", [pyth.address,priceFeedIds.btc,10000]),
       deployContract("Token", []),
-      deployContract("PriceFeed", [])
+      deployContract("PythPriceFeedV2", [pyth.address,priceFeedIds.dai,10000])
     ])
 
-    bnb = tmp[0]
-    bnbPriceFeed = tmp[1]
+    eth = tmp[0]
+    ethPriceFeed = tmp[1]
     btc = tmp[2]
     btcPriceFeed = tmp[3]
     dai = tmp[4]
@@ -818,9 +828,8 @@ describe("PositionManager next short data calculations", function () {
     vault = await deployVault()
     await vault.setIsLeverageEnabled(false)
     usdg = await deployContract("USDG", [vault.address])
-    router = await deployContract("Router", [vault.address, usdg.address, bnb.address])
+    router = await deployContract("Router", [vault.address, usdg.address, eth.address,pyth.address])
     vaultPriceFeed = await deployVaultPriceFeed()
-    await vaultPriceFeed.setPriceSampleSpace(1)
 
     const initVaultResult = await initVault(vault, router, usdg, vaultPriceFeed)
     vaultUtils = initVaultResult.vaultUtils
@@ -829,27 +838,28 @@ describe("PositionManager next short data calculations", function () {
     yieldTracker0 = await deployContract("YieldTracker", [usdg.address])
 
     await yieldTracker0.setDistributor(distributor0.address)
-    await distributor0.setDistribution([yieldTracker0.address], [1000], [bnb.address])
+    await distributor0.setDistribution([yieldTracker0.address], [1000], [eth.address])
 
-    await bnb.mint(distributor0.address, 5000)
+    await eth.mint(distributor0.address, 5000)
     await usdg.setYieldTrackers([yieldTracker0.address])
 
     Promise.all([
-      vaultPriceFeed.setTokenConfig(bnb.address, bnbPriceFeed.address, 8, false),
+      vaultPriceFeed.setTokenConfig(eth.address, ethPriceFeed.address, 8, false),
       vaultPriceFeed.setTokenConfig(btc.address, btcPriceFeed.address, 8, false),
       vaultPriceFeed.setTokenConfig(dai.address, daiPriceFeed.address, 8, false)
     ])
 
-    orderBook = await deployContract("OrderBook", [])
+    orderBook = await deployContract("OrderBookV2", [])
     const minExecutionFee = 500000;
     await orderBook.initialize(
       router.address,
       vault.address,
-      bnb.address,
+      eth.address,
       usdg.address,
       minExecutionFee,
-      expandDecimals(5, 30) // minPurchseTokenAmountUsd
-    );
+      expandDecimals(5, 30), // minPurchseTokenAmountUsd
+      pyth.address
+      );
     await router.addPlugin(orderBook.address)
     await router.connect(user0).approvePlugin(orderBook.address)
 
@@ -863,36 +873,38 @@ describe("PositionManager next short data calculations", function () {
       24 * 60 * 60
     ])
 
-    positionUtils = await deployContract("PositionUtils", [])
+    PositionUtils_0_8_18 = await deployContract("PositionUtils_0_8_18", [])
 
-    positionManager = await deployContract("PositionManager", [
+    positionManager = await deployContract("PositionManagerV2", [
       vault.address,
       router.address,
       shortsTracker.address,
-      bnb.address,
+      eth.address,
       50,
-      orderBook.address
+      orderBook.address,
+      pyth.address
     ], {
       libraries: {
-        PositionUtils: positionUtils.address
+        PositionUtils_0_8_18: PositionUtils_0_8_18.address
       }
     })
     await positionManager.setInLegacyMode(true)
     await router.addPlugin(positionManager.address)
     await shortsTracker.setHandler(positionManager.address, true)
+    await orderBook.setHandler(positionManager.address,true)
 
-    await daiPriceFeed.setLatestAnswer(toChainlinkPrice(1))
+    await pyth.updatePrice(priceFeedIds.dai, toChainlinkPrice(1))
     await vault.setTokenConfig(...getDaiConfig(dai, daiPriceFeed))
 
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(60000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(60000))
     await vault.setTokenConfig(...getBtcConfig(btc, btcPriceFeed))
 
-    await bnbPriceFeed.setLatestAnswer(toChainlinkPrice(300))
-    await vault.setTokenConfig(...getBnbConfig(bnb, bnbPriceFeed))
+    await pyth.updatePrice(priceFeedIds.eth, toChainlinkPrice(300))
+    await vault.setTokenConfig(...getBnbConfig(eth, ethPriceFeed))
 
     await dai.mint(user0.address, expandDecimals(1000000, 18))
     await dai.connect(user0).approve(router.address, expandDecimals(1000000, 18))
-    await router.connect(user0).swap([dai.address, usdg.address], expandDecimals(500000, 18), expandDecimals(29000, 18), user0.address)
+    await router.connect(user0).swap([dai.address, usdg.address], expandDecimals(500000, 18), expandDecimals(29000, 18), user0.address, priceUpdateData)
     await router.connect(user0).approvePlugin(positionManager.address)
 
     await dai.mint(user1.address, expandDecimals(500000, 18))
@@ -984,11 +996,11 @@ describe("PositionManager next short data calculations", function () {
     let averagePrice = await shortsTracker.globalShortAveragePrices(btc.address)
     expect(averagePrice, 0).to.be.equal(0)
 
-    await positionManager.connect(user0).increasePosition([dai.address], btc.address, expandDecimals(100, 18), 0, toUsd(1000), false, toNormalizedPrice(60000))
+    await positionManager.connect(user0).increasePosition([dai.address], btc.address, expandDecimals(100, 18), 0, toUsd(1000), false, toNormalizedPrice(60000), priceUpdateData)
     averagePrice = await shortsTracker.globalShortAveragePrices(btc.address)
     expect(averagePrice, 1).to.be.equal(0)
 
-    await positionManager.connect(user0).decreasePosition(dai.address, btc.address, 0, toUsd(1000), false, user0.address, toNormalizedPrice(60000))
+    await positionManager.connect(user0).decreasePosition(dai.address, btc.address, 0, toUsd(1000), false, user0.address, toNormalizedPrice(60000), priceUpdateData)
     averagePrice = await shortsTracker.globalShortAveragePrices(btc.address)
     expect(averagePrice, 2).to.be.equal(0)
   })
@@ -998,11 +1010,11 @@ describe("PositionManager next short data calculations", function () {
     expect(await vault.globalShortSizes(btc.address)).to.be.equal(0)
     expect(await vault.globalShortSizes(btc.address)).to.be.equal(0)
 
-    await positionManager.connect(user0).increasePosition([dai.address], btc.address, expandDecimals(100, 18), 0, toUsd(1000), false, toNormalizedPrice(60000))
+    await positionManager.connect(user0).increasePosition([dai.address], btc.address, expandDecimals(100, 18), 0, toUsd(1000), false, toNormalizedPrice(60000), priceUpdateData)
     expect(await vault.globalShortSizes(btc.address)).to.be.equal(await vault.globalShortSizes(btc.address))
     expect(await vault.globalShortSizes(btc.address), 1).to.be.equal(toUsd(1000))
 
-    await positionManager.connect(user0).decreasePosition(dai.address, btc.address, 0, toUsd(1000), false, user0.address, toNormalizedPrice(60000))
+    await positionManager.connect(user0).decreasePosition(dai.address, btc.address, 0, toUsd(1000), false, user0.address, toNormalizedPrice(60000), priceUpdateData)
     expect(await vault.globalShortSizes(btc.address)).to.be.equal(await vault.globalShortSizes(btc.address))
     expect(await vault.globalShortSizes(btc.address), 1).to.be.equal(0)
   })
@@ -1012,10 +1024,10 @@ describe("PositionManager next short data calculations", function () {
     expect(await shortsTracker.globalShortAveragePrices(btc.address)).to.be.equal(0)
     expect(await vault.globalShortAveragePrices(btc.address)).to.be.equal(0)
 
-    await positionManager.connect(user0).increasePosition([dai.address], btc.address, expandDecimals(100, 18), 0, toUsd(1000), false, toNormalizedPrice(60000))
+    await positionManager.connect(user0).increasePosition([dai.address], btc.address, expandDecimals(100, 18), 0, toUsd(1000), false, toNormalizedPrice(60000), priceUpdateData)
     expect(await shortsTracker.globalShortAveragePrices(btc.address)).to.be.equal(await vault.globalShortAveragePrices(btc.address))
 
-    await positionManager.connect(user0).increasePosition([dai.address], btc.address, expandDecimals(100, 18), 0, toUsd(1000), false, toNormalizedPrice(60000))
+    await positionManager.connect(user0).increasePosition([dai.address], btc.address, expandDecimals(100, 18), 0, toUsd(1000), false, toNormalizedPrice(60000), priceUpdateData)
     expect(await shortsTracker.globalShortAveragePrices(btc.address)).to.be.equal(await vault.globalShortAveragePrices(btc.address))
   })
 
@@ -1033,16 +1045,16 @@ describe("PositionManager next short data calculations", function () {
     await zlpManager.setShortsTrackerAveragePriceWeight(10000)
     expect(await zlpManager.shortsTrackerAveragePriceWeight()).to.be.equal(10000)
 
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(60000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(60000))
     // "setting": short OI 100k, avg price 60,000, mark price 54,000, global pending pnl -10k
-    await positionManager.connect(user1).increasePosition([dai.address], btc.address, expandDecimals(50000, 18), 0, toUsd(100000), false, toNormalizedPrice(60000))
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(54000))
+    await positionManager.connect(user1).increasePosition([dai.address], btc.address, expandDecimals(50000, 18), 0, toUsd(100000), false, toNormalizedPrice(60000), priceUpdateData)
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(54000))
 
     // at this point global pending pnl is 10k
     // CASE 1: open/close position when global pnl is positive
     let aumBefore = await zlpManager.getAum(true)
-    await positionManager.connect(user0).increasePosition([dai.address], btc.address, expandDecimals(10000, 18), 0, toUsd(100000), false, toNormalizedPrice(54000))
-    await positionManager.connect(user0).decreasePosition(dai.address, btc.address, 0, toUsd(100000), false, user0.address, toNormalizedPrice(54000))
+    await positionManager.connect(user0).increasePosition([dai.address], btc.address, expandDecimals(10000, 18), 0, toUsd(100000), false, toNormalizedPrice(54000), priceUpdateData)
+    await positionManager.connect(user0).decreasePosition(dai.address, btc.address, 0, toUsd(100000), false, user0.address, toNormalizedPrice(54000), priceUpdateData)
     let aumAfter = await zlpManager.getAum(true)
     expectAumsAreEqual(aumBefore, aumAfter, "aum 0")
 
@@ -1051,12 +1063,12 @@ describe("PositionManager next short data calculations", function () {
     expect(data[1], "delta 0").to.be.equal("9999999999999999999999999999999996")
 
     // CASE 2: open position, close in loss
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(54000))
-    await positionManager.connect(user0).increasePosition([dai.address], btc.address, expandDecimals(50000, 18), 0, toUsd(100000), false, toNormalizedPrice(54000))
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(66000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(54000))
+    await positionManager.connect(user0).increasePosition([dai.address], btc.address, expandDecimals(50000, 18), 0, toUsd(100000), false, toNormalizedPrice(54000), priceUpdateData)
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(66000))
 
     aumBefore = await zlpManager.getAum(true)
-    await positionManager.connect(user0).decreasePosition(dai.address, btc.address, 0, toUsd(100000), false, user0.address, toNormalizedPrice(66000))
+    await positionManager.connect(user0).decreasePosition(dai.address, btc.address, 0, toUsd(100000), false, user0.address, toNormalizedPrice(66000), priceUpdateData)
     aumAfter = await zlpManager.getAum(true)
     expectAumsAreEqual(aumBefore, aumAfter, "aum 1")
 
@@ -1065,10 +1077,10 @@ describe("PositionManager next short data calculations", function () {
     expect(data[1], "delta 1").to.be.equal("10000000000000000000000000000000007")
 
     // CASE 3: open/close position when global pnl is negative
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(66000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(66000))
     aumBefore = await zlpManager.getAum(true)
-    await positionManager.connect(user0).increasePosition([dai.address], btc.address, expandDecimals(10000, 18), 0, toUsd(100000), false, toNormalizedPrice(66000))
-    await positionManager.connect(user0).decreasePosition(dai.address, btc.address, 0, toUsd(100000), false, user0.address, toNormalizedPrice(66000))
+    await positionManager.connect(user0).increasePosition([dai.address], btc.address, expandDecimals(10000, 18), 0, toUsd(100000), false, toNormalizedPrice(66000), priceUpdateData)
+    await positionManager.connect(user0).decreasePosition(dai.address, btc.address, 0, toUsd(100000), false, user0.address, toNormalizedPrice(66000), priceUpdateData)
     aumAfter = await zlpManager.getAum(true)
     expectAumsAreEqual(aumBefore, aumAfter, "aum 2")
 
@@ -1077,12 +1089,12 @@ describe("PositionManager next short data calculations", function () {
     expect(data[1], "delta 2").to.be.equal("10000000000000000000000000000000007")
 
     // CASE 4: open position, close in profit
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(66000))
-    await positionManager.connect(user0).increasePosition([dai.address], btc.address, expandDecimals(50000, 18), 0, toUsd(100000), false, toNormalizedPrice(54000))
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(54000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(66000))
+    await positionManager.connect(user0).increasePosition([dai.address], btc.address, expandDecimals(50000, 18), 0, toUsd(100000), false, toNormalizedPrice(54000), priceUpdateData)
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(54000))
 
     aumBefore = await zlpManager.getAum(true)
-    await positionManager.connect(user0).decreasePosition(dai.address, btc.address, 0, toUsd(100000), false, user0.address, toNormalizedPrice(54000))
+    await positionManager.connect(user0).decreasePosition(dai.address, btc.address, 0, toUsd(100000), false, user0.address, toNormalizedPrice(54000), priceUpdateData)
     aumAfter = await zlpManager.getAum(true)
     expectAumsAreEqual(aumBefore, aumAfter, "aum 3")
 
@@ -1091,22 +1103,22 @@ describe("PositionManager next short data calculations", function () {
     expect(data[1], "delta 3").to.be.equal("9999999999999999999999999999999993")
 
     // CASE 5: open position, close in profit in multiple steps
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(60000))
-    await positionManager.connect(user0).increasePosition([dai.address], btc.address, expandDecimals(30000, 18), 0, toUsd(90000), false, toNormalizedPrice(60000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(60000))
+    await positionManager.connect(user0).increasePosition([dai.address], btc.address, expandDecimals(30000, 18), 0, toUsd(90000), false, toNormalizedPrice(60000), priceUpdateData)
 
     aumBefore = await zlpManager.getAum(true)
 
     // decrease 3 times by 1/3
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(57000))
-    await positionManager.connect(user0).decreasePosition(dai.address, btc.address, toUsd(10000), toUsd(30000), false, user0.address, toNormalizedPrice(57000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(57000))
+    await positionManager.connect(user0).decreasePosition(dai.address, btc.address, toUsd(10000), toUsd(30000), false, user0.address, toNormalizedPrice(57000), priceUpdateData)
     // realised profit 4500
 
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(54000))
-    await positionManager.connect(user0).decreasePosition(dai.address, btc.address, toUsd(10000), toUsd(30000), false, user0.address, toNormalizedPrice(54000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(54000))
+    await positionManager.connect(user0).decreasePosition(dai.address, btc.address, toUsd(10000), toUsd(30000), false, user0.address, toNormalizedPrice(54000), priceUpdateData)
     // realised profit 3000
 
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(51000))
-    await positionManager.connect(user0).decreasePosition(dai.address, btc.address, 0, toUsd(30000), false, user0.address, toNormalizedPrice(51000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(51000))
+    await positionManager.connect(user0).decreasePosition(dai.address, btc.address, 0, toUsd(30000), false, user0.address, toNormalizedPrice(51000), priceUpdateData)
     // realised profit 1500
 
     // total realised profit is 9000 => pool was decreased by 9000
@@ -1121,7 +1133,7 @@ describe("PositionManager next short data calculations", function () {
     expect(data[0], "has profit 4").to.be.equal(true)
 
     // set price to "initial" (or current global average price)
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(60000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(60000))
     aumAfter = await zlpManager.getAum(true)
     expectAumsAreEqual(aumBefore.sub("8999999999999999999999999999999994"), aumAfter, "aum 4b") // -$9k
 
@@ -1140,13 +1152,13 @@ describe("PositionManager next short data calculations", function () {
     // pending
 
     // "setting": short OI 100k, avg price 60,000, mark price 54,000, global pending pnl -10k
-    await positionManager.connect(user1).increasePosition([dai.address], btc.address, expandDecimals(50000, 18), 0, toUsd(100000), false, toNormalizedPrice(60000))
+    await positionManager.connect(user1).increasePosition([dai.address], btc.address, expandDecimals(50000, 18), 0, toUsd(100000), false, toNormalizedPrice(60000), priceUpdateData)
 
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(54000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(54000))
 
-    await positionManager.connect(user0).increasePosition([dai.address], btc.address, expandDecimals(10000, 18), 0, toUsd(100000), false, toNormalizedPrice(54000))
+    await positionManager.connect(user0).increasePosition([dai.address], btc.address, expandDecimals(10000, 18), 0, toUsd(100000), false, toNormalizedPrice(54000), priceUpdateData)
 
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(58800))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(58800))
 
     // make sure it's a soft liquidation
     const [liquidationState] = await getLiquidationState(user0.address, dai.address, btc.address, false, false)
@@ -1154,11 +1166,11 @@ describe("PositionManager next short data calculations", function () {
 
     await positionManager.setLiquidator(user1.address, true)
     const aumBefore = await zlpManager.getAum(true)
-    await positionManager.connect(user1).liquidatePosition(user0.address, dai.address, btc.address, false, wallet.address)
+    await positionManager.connect(user1).liquidatePosition(user0.address, dai.address, btc.address, false, wallet.address, priceUpdateData)
     const aumAfter = await zlpManager.getAum(true)
     expectAumsAreEqual(aumBefore, aumAfter, "aum")
 
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(60000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(60000))
     data = await shortsTracker.getGlobalShortDelta(btc.address)
     expect(data[1], "delta").to.be.lt(100) // to consider rounding errors
   })
@@ -1174,13 +1186,13 @@ describe("PositionManager next short data calculations", function () {
     expect(await zlpManager.shortsTrackerAveragePriceWeight()).to.be.equal(10000)
 
     // "setting": short OI 100k, avg price 60,000, mark price 54,000, global pending pnl -10k
-    await positionManager.connect(user1).increasePosition([dai.address], btc.address, expandDecimals(50000, 18), 0, toUsd(100000), false, toNormalizedPrice(60000))
+    await positionManager.connect(user1).increasePosition([dai.address], btc.address, expandDecimals(50000, 18), 0, toUsd(100000), false, toNormalizedPrice(60000), priceUpdateData)
 
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(50000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(50000))
 
-    await positionManager.connect(user0).increasePosition([dai.address], btc.address, expandDecimals(10000, 18), 0, toUsd(100000), false, toNormalizedPrice(50000))
+    await positionManager.connect(user0).increasePosition([dai.address], btc.address, expandDecimals(10000, 18), 0, toUsd(100000), false, toNormalizedPrice(50000), priceUpdateData)
 
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(60000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(60000))
 
     // make sure it's a hard liquidation
     const [liquidationState] = await getLiquidationState(user0.address, dai.address, btc.address, false, false)
@@ -1188,7 +1200,7 @@ describe("PositionManager next short data calculations", function () {
 
     await positionManager.setLiquidator(user1.address, true)
     aumBefore = await zlpManager.getAum(true)
-    await positionManager.connect(user1).liquidatePosition(user0.address, dai.address, btc.address, false, wallet.address)
+    await positionManager.connect(user1).liquidatePosition(user0.address, dai.address, btc.address, false, wallet.address, priceUpdateData)
     aumAfter = await zlpManager.getAum(true)
 
     // global delta should be the same as at the beginning – 0 because the first position avg price = current mark price = 60k
@@ -1212,24 +1224,24 @@ describe("PositionManager next short data calculations", function () {
     const aumBefore = await zlpManager.getAum(true)
 
     // "setting": short OI 100k, avg price 60,000, mark price 54,000, global pending pnl -10k
-    await positionManager.connect(user1).increasePosition([dai.address], btc.address, expandDecimals(50000, 18), 0, toUsd(100000), false, toNormalizedPrice(60000))
+    await positionManager.connect(user1).increasePosition([dai.address], btc.address, expandDecimals(50000, 18), 0, toUsd(100000), false, toNormalizedPrice(60000), priceUpdateData)
 
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(48000))
-    await positionManager.connect(user0).increasePosition([dai.address], btc.address, expandDecimals(10000, 18), 0, toUsd(100000), false, toNormalizedPrice(48000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(48000))
+    await positionManager.connect(user0).increasePosition([dai.address], btc.address, expandDecimals(10000, 18), 0, toUsd(100000), false, toNormalizedPrice(48000), priceUpdateData)
 
     await increaseTime(provider, 86400 * 30)
     await vault.updateCumulativeFundingRate(dai.address, btc.address)
 
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(52800))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(52800))
     // make sure it's a hard liquidation
     const [liquidationState, marginFee] = await getLiquidationState(user0.address, dai.address, btc.address, false, false)
     expect(liquidationState, "liquidation state").to.be.eq(1)
 
     // borrow fees are $2166,4 (2166400000000000000000000000000000) at this point
     await positionManager.setLiquidator(user1.address, true)
-    await positionManager.connect(user1).liquidatePosition(user0.address, dai.address, btc.address, false, user1.address)
+    await positionManager.connect(user1).liquidatePosition(user0.address, dai.address, btc.address, false, user1.address, priceUpdateData)
 
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(60000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(60000))
 
     // aum should be increased by $9900 (pos collteral) - $2166,4 (borrow fee) - $100 (margin fee) - $5 (liquidation fee) = $7628,6
     const aumAfter = await zlpManager.getAum(true)
@@ -1249,24 +1261,24 @@ describe("PositionManager next short data calculations", function () {
     const aumBefore = await zlpManager.getAum(true)
 
     // "setting": short OI 100k, avg price 60,000, mark price 54,000, global pending pnl -10k
-    await positionManager.connect(user1).increasePosition([dai.address], btc.address, expandDecimals(50000, 18), 0, toUsd(100000), false, toNormalizedPrice(60000))
+    await positionManager.connect(user1).increasePosition([dai.address], btc.address, expandDecimals(50000, 18), 0, toUsd(100000), false, toNormalizedPrice(60000), priceUpdateData)
 
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(48000))
-    await positionManager.connect(user0).increasePosition([dai.address], btc.address, expandDecimals(10000, 18), 0, toUsd(100000), false, toNormalizedPrice(48000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(48000))
+    await positionManager.connect(user0).increasePosition([dai.address], btc.address, expandDecimals(10000, 18), 0, toUsd(100000), false, toNormalizedPrice(48000), priceUpdateData)
 
     await increaseTime(provider, 86400 * 365)
     await vault.updateCumulativeFundingRate(dai.address, btc.address)
 
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(52800))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(52800))
     // make sure it's a hard liquidation
     const [liquidationState, marginFee] = await getLiquidationState(user0.address, dai.address, btc.address, false, false)
     expect(liquidationState, "liquidation state").to.be.eq(1)
 
     // borrow fees are $2166,4 (2166400000000000000000000000000000) at this point
     await positionManager.setLiquidator(user1.address, true)
-    await positionManager.connect(user1).liquidatePosition(user0.address, dai.address, btc.address, false, user1.address)
+    await positionManager.connect(user1).liquidatePosition(user0.address, dai.address, btc.address, false, user1.address, priceUpdateData)
 
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(60000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(60000))
     // debugState(2)
 
     // borrow fee exceeds collateral so nothing to increase pool by. pool is decreased by $5 liq fee
@@ -1296,25 +1308,25 @@ describe("PositionManager next short data calculations", function () {
 
     let aumBefore = await zlpManager.getAum(true)
 
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(60000))
-    await positionManager.connect(user0).increasePosition([dai.address], btc.address, expandDecimals(50000, 18), 0, toUsd(100000), false, toNormalizedPrice(60000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(60000))
+    await positionManager.connect(user0).increasePosition([dai.address], btc.address, expandDecimals(50000, 18), 0, toUsd(100000), false, toNormalizedPrice(60000), priceUpdateData)
 
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(50000))
-    await positionManager.connect(user1).increasePosition([dai.address], btc.address, expandDecimals(10000, 18), 0, toUsd(100000), false, toNormalizedPrice(50000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(50000))
+    await positionManager.connect(user1).increasePosition([dai.address], btc.address, expandDecimals(10000, 18), 0, toUsd(100000), false, toNormalizedPrice(50000), priceUpdateData)
 
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(55000))
-    await positionManager.connect(user2).increasePosition([dai.address], btc.address, expandDecimals(15000, 18), 0, toUsd(100000), false, toNormalizedPrice(55000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(55000))
+    await positionManager.connect(user2).increasePosition([dai.address], btc.address, expandDecimals(15000, 18), 0, toUsd(100000), false, toNormalizedPrice(55000), priceUpdateData)
 
     await positionManager.setLiquidator(user0.address, true)
 
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(60000))
-    await positionManager.connect(user0).liquidatePosition(user1.address, dai.address, btc.address, false, wallet.address)
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(60000))
+    await positionManager.connect(user0).liquidatePosition(user1.address, dai.address, btc.address, false, wallet.address, priceUpdateData)
 
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(65000))
-    await positionManager.connect(user0).liquidatePosition(user2.address, dai.address, btc.address, false, wallet.address)
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(65000))
+    await positionManager.connect(user0).liquidatePosition(user2.address, dai.address, btc.address, false, wallet.address, priceUpdateData)
 
     // set price to initial
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(60000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(60000))
 
     let data = await shortsTracker.getGlobalShortDelta(btc.address)
     expect(data[1], "global delta").to.be.lt(100) // 100 to consider rounding errors
@@ -1328,36 +1340,36 @@ describe("PositionManager next short data calculations", function () {
     await zlpManager.setShortsTrackerAveragePriceWeight(10000)
     expect(await zlpManager.shortsTrackerAveragePriceWeight()).to.be.equal(10000)
 
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(60000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(60000))
     // open "other" position
-    await positionManager.connect(user0).increasePosition([dai.address], btc.address, expandDecimals(50000, 18), 0, toUsd(100000), false, toNormalizedPrice(60000))
+    await positionManager.connect(user0).increasePosition([dai.address], btc.address, expandDecimals(50000, 18), 0, toUsd(100000), false, toNormalizedPrice(60000), priceUpdateData)
 
-    await positionManager.connect(user1).increasePosition([dai.address], btc.address, expandDecimals(50000, 18), 0, toUsd(100000), false, toNormalizedPrice(60000))
+    await positionManager.connect(user1).increasePosition([dai.address], btc.address, expandDecimals(50000, 18), 0, toUsd(100000), false, toNormalizedPrice(60000), priceUpdateData)
 
     const startAvgPrice = await shortsTracker.globalShortAveragePrices(btc.address)
     const startSize = await vault.globalShortSizes(btc.address)
 
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(55000))
-    await positionManager.connect(user1).increasePosition([dai.address], btc.address, expandDecimals(10000, 18), 0, 0, false, toNormalizedPrice(55000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(55000))
+    await positionManager.connect(user1).increasePosition([dai.address], btc.address, expandDecimals(10000, 18), 0, 0, false, toNormalizedPrice(55000), priceUpdateData)
     let avgPrice = await shortsTracker.globalShortAveragePrices(btc.address)
     expect(avgPrice, "avg price 0").to.be.eq(startAvgPrice)
     let size = await vault.globalShortSizes(btc.address)
     expect(size, "size 0").to.be.eq(startSize)
 
-    await positionManager.connect(user1).decreasePosition(dai.address, btc.address, toUsd(10000), 0, false, user0.address, toNormalizedPrice(55000))
+    await positionManager.connect(user1).decreasePosition(dai.address, btc.address, toUsd(10000), 0, false, user0.address, toNormalizedPrice(55000), priceUpdateData)
     avgPrice = await shortsTracker.globalShortAveragePrices(btc.address)
     expect(avgPrice, "avg price 1").to.be.eq(startAvgPrice)
     size = await vault.globalShortSizes(btc.address)
     expect(size, "size 1").to.be.eq(startSize)
 
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(65000))
-    await positionManager.connect(user1).increasePosition([dai.address], btc.address, expandDecimals(10000, 18), 0, 0, false, toNormalizedPrice(65000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(65000))
+    await positionManager.connect(user1).increasePosition([dai.address], btc.address, expandDecimals(10000, 18), 0, 0, false, toNormalizedPrice(65000), priceUpdateData)
     avgPrice = await shortsTracker.globalShortAveragePrices(btc.address)
     expect(avgPrice, "avg price 0").to.be.eq(startAvgPrice)
     size = await vault.globalShortSizes(btc.address)
     expect(size, "size 2").to.be.eq(startSize)
 
-    await positionManager.connect(user1).decreasePosition(dai.address, btc.address, toUsd(10000), 0, false, user0.address, toNormalizedPrice(65000))
+    await positionManager.connect(user1).decreasePosition(dai.address, btc.address, toUsd(10000), 0, false, user0.address, toNormalizedPrice(65000), priceUpdateData)
     avgPrice = await shortsTracker.globalShortAveragePrices(btc.address)
     expect(avgPrice, "avg price 1").to.be.eq(startAvgPrice)
     size = await vault.globalShortSizes(btc.address)
@@ -1377,17 +1389,17 @@ describe("PositionManager next short data calculations", function () {
 
     let aumBefore = await zlpManager.getAum(true)
 
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(60000))
-    await positionManager.connect(user0).increasePosition([dai.address], btc.address, expandDecimals(50000, 18), 0, toUsd(100000), false, toNormalizedPrice(60000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(60000))
+    await positionManager.connect(user0).increasePosition([dai.address], btc.address, expandDecimals(50000, 18), 0, toUsd(100000), false, toNormalizedPrice(60000), priceUpdateData)
 
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(50000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(50000))
 
     for (let i = 0; i < 5; i++) {
-      await positionManager.connect(user1).increasePosition([dai.address], btc.address, expandDecimals(10000, 18), 0, toUsd(100000), false, toNormalizedPrice(50000))
-      await positionManager.connect(user1).decreasePosition(dai.address, btc.address, 0, toUsd(100000), false, user0.address, toNormalizedPrice(50000))
+      await positionManager.connect(user1).increasePosition([dai.address], btc.address, expandDecimals(10000, 18), 0, toUsd(100000), false, toNormalizedPrice(50000), priceUpdateData)
+      await positionManager.connect(user1).decreasePosition(dai.address, btc.address, 0, toUsd(100000), false, user0.address, toNormalizedPrice(50000), priceUpdateData)
     }
 
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(60000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(60000))
 
     let data = await shortsTracker.getGlobalShortDelta(btc.address)
     expect(data[1], "global delta").to.be.lt(100) // 100 to consider rounding errors
@@ -1401,8 +1413,8 @@ describe("PositionManager next short data calculations", function () {
     await zlpManager.setShortsTrackerAveragePriceWeight(10000)
     await positionManager.setOrderKeeper(user1.address, true)
 
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(50000))
-    await positionManager.connect(user1).increasePosition([dai.address], btc.address, expandDecimals(50000, 18), 0, toUsd(100000), false, toNormalizedPrice(50000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(50000))
+    await positionManager.connect(user1).increasePosition([dai.address], btc.address, expandDecimals(50000, 18), 0, toUsd(100000), false, toNormalizedPrice(50000), priceUpdateData)
 
     const executionFee = expandDecimals(1, 17) // 0.1 WETH
     await orderBook.connect(user0).createIncreaseOrder(
@@ -1417,6 +1429,7 @@ describe("PositionManager next short data calculations", function () {
       true, // triggerAboveThreshold
       executionFee,
       false, // shouldWrap
+      priceUpdateData,
       { value: executionFee }
     );
 
@@ -1431,9 +1444,9 @@ describe("PositionManager next short data calculations", function () {
     let [size] = await vault.getPosition(user0.address, btc.address, btc.address, true)
     expect(size, "size 0").to.be.equal(0)
 
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(60000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(60000))
     let aumBefore = await zlpManager.getAum(true)
-    await positionManager.connect(user1).executeIncreaseOrder(user0.address, orderIndex, user1.address);
+    await positionManager.connect(user1).executeIncreaseOrder(user0.address, orderIndex, user1.address, priceUpdateData);
     [size] = await vault.getPosition(user0.address, dai.address, btc.address, false)
     expect(size, "size 1").to.be.equal(toUsd(2000))
 
@@ -1451,8 +1464,8 @@ describe("PositionManager next short data calculations", function () {
     await zlpManager.setShortsTrackerAveragePriceWeight(10000)
     await positionManager.setOrderKeeper(user1.address, true)
 
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(50000))
-    await positionManager.connect(user1).increasePosition([dai.address], btc.address, expandDecimals(50000, 18), 0, toUsd(100000), false, toNormalizedPrice(50000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(50000))
+    await positionManager.connect(user1).increasePosition([dai.address], btc.address, expandDecimals(50000, 18), 0, toUsd(100000), false, toNormalizedPrice(50000), priceUpdateData)
 
     await router.connect(user1).approvePlugin(orderBook.address)
 
@@ -1469,7 +1482,7 @@ describe("PositionManager next short data calculations", function () {
     );
 
     let orderIndex = (await orderBook.decreaseOrdersIndex(user1.address)) - 1
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(60000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(60000))
     let [size] = await vault.getPosition(user1.address, dai.address, btc.address, false)
     expect(size, "size 1").to.be.equal(toUsd(100000))
 
@@ -1479,7 +1492,7 @@ describe("PositionManager next short data calculations", function () {
     let shortSize = await vault.globalShortSizes(btc.address)
     expect(shortSize, "shortSize 0").to.be.equal(toUsd(100000))
 
-    await positionManager.connect(user1).executeDecreaseOrder(user1.address, orderIndex, user1.address);
+    await positionManager.connect(user1).executeDecreaseOrder(user1.address, orderIndex, user1.address, priceUpdateData);
     [size] = await vault.getPosition(user1.address, dai.address, btc.address, false)
     expect(size, "size 1").to.be.equal(toUsd(90000))
 
@@ -1494,37 +1507,37 @@ describe("PositionManager next short data calculations", function () {
   it("compare gas costs", async () => {
     await shortsTracker.setIsGlobalShortDataReady(true)
 
-    await positionManager.connect(user1).increasePosition([dai.address], btc.address, expandDecimals(50000, 18), 0, toUsd(100000), false, toNormalizedPrice(60000))
-    await positionManager.connect(user1).decreasePosition(dai.address, btc.address, 0, toUsd(50000), false, user0.address, toNormalizedPrice(60000))
+    await positionManager.connect(user1).increasePosition([dai.address], btc.address, expandDecimals(50000, 18), 0, toUsd(100000), false, toNormalizedPrice(60000), priceUpdateData)
+    await positionManager.connect(user1).decreasePosition(dai.address, btc.address, 0, toUsd(50000), false, user0.address, toNormalizedPrice(60000), priceUpdateData)
 
     console.log("\nReport prices with short tracker enabled:")
 
-    let tx0 = await positionManager.connect(user0).increasePosition([dai.address], btc.address, expandDecimals(50000, 18), 0, toUsd(100000), false, toNormalizedPrice(60000))
+    let tx0 = await positionManager.connect(user0).increasePosition([dai.address], btc.address, expandDecimals(50000, 18), 0, toUsd(100000), false, toNormalizedPrice(60000), priceUpdateData)
     const tx0GasUsed0 = await reportGasUsed(provider, tx0, "open position")
 
-    let tx1 = await positionManager.connect(user0).increasePosition([dai.address], btc.address, expandDecimals(50000, 18), 0, toUsd(100000), false, toNormalizedPrice(60000))
+    let tx1 = await positionManager.connect(user0).increasePosition([dai.address], btc.address, expandDecimals(50000, 18), 0, toUsd(100000), false, toNormalizedPrice(60000), priceUpdateData)
     const tx1GasUsed0 = await reportGasUsed(provider, tx1, "increase position")
 
-    let tx2 = await positionManager.connect(user0).decreasePosition(dai.address, btc.address, 0, toUsd(100000), false, user0.address, toNormalizedPrice(60000))
+    let tx2 = await positionManager.connect(user0).decreasePosition(dai.address, btc.address, 0, toUsd(100000), false, user0.address, toNormalizedPrice(60000), priceUpdateData)
     const tx2GasUsed0 = await reportGasUsed(provider, tx2, "decrease position")
 
-    let tx3 = await positionManager.connect(user0).decreasePosition(dai.address, btc.address, 0, toUsd(100000), false, user0.address, toNormalizedPrice(60000))
+    let tx3 = await positionManager.connect(user0).decreasePosition(dai.address, btc.address, 0, toUsd(100000), false, user0.address, toNormalizedPrice(60000), priceUpdateData)
     const tx3GasUsed0 = await reportGasUsed(provider, tx3, "close position")
 
     await shortsTracker.setIsGlobalShortDataReady(false)
 
     console.log("\nReport prices with short tracker disabled:")
 
-    tx0 = await positionManager.connect(user0).increasePosition([dai.address], btc.address, expandDecimals(50000, 18), 0, toUsd(100000), false, toNormalizedPrice(60000))
+    tx0 = await positionManager.connect(user0).increasePosition([dai.address], btc.address, expandDecimals(50000, 18), 0, toUsd(100000), false, toNormalizedPrice(60000), priceUpdateData)
     const tx0GasUsed1 = await reportGasUsed(provider, tx0, "open position")
 
-    tx1 = await positionManager.connect(user0).increasePosition([dai.address], btc.address, expandDecimals(50000, 18), 0, toUsd(100000), false, toNormalizedPrice(60000))
+    tx1 = await positionManager.connect(user0).increasePosition([dai.address], btc.address, expandDecimals(50000, 18), 0, toUsd(100000), false, toNormalizedPrice(60000), priceUpdateData)
     const tx1GasUsed1 = await reportGasUsed(provider, tx1, "increase position")
 
-    tx2 = await positionManager.connect(user0).decreasePosition(dai.address, btc.address, 0, toUsd(100000), false, user0.address, toNormalizedPrice(60000))
+    tx2 = await positionManager.connect(user0).decreasePosition(dai.address, btc.address, 0, toUsd(100000), false, user0.address, toNormalizedPrice(60000), priceUpdateData)
     const tx2GasUsed1 = await reportGasUsed(provider, tx2, "decrease position")
 
-    tx3 = await positionManager.connect(user0).decreasePosition(dai.address, btc.address, 0, toUsd(100000), false, user0.address, toNormalizedPrice(60000))
+    tx3 = await positionManager.connect(user0).decreasePosition(dai.address, btc.address, 0, toUsd(100000), false, user0.address, toNormalizedPrice(60000), priceUpdateData)
     const tx3GasUsed1 = await reportGasUsed(provider, tx3, "close position")
 
     console.log("\nGas increase with short tracker:")

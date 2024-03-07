@@ -1,10 +1,11 @@
 const { expect, use } = require("chai")
 const { solidity } = require("ethereum-waffle")
-const { deployContract, deployTimeDistributor, deployVault, deployProxyBlockInfo, deployVaultPriceFeed, deployZlpManager, deployFastPriceFeed, deployTimelock } = require("../shared/fixtures")
+const { deployContract, deployTimeDistributor, deployVault, deployProxyBlockInfo, deployVaultPriceFeed, deployZlpManager, deployTimelock } = require("../shared/fixtures")
 const { expandDecimals, getBlockTime, increaseTime, mineBlock, reportGasUsed, newWallet } = require("../shared/utilities")
 const { toChainlinkPrice } = require("../shared/chainlink")
 const { toUsd } = require("../shared/units")
 const { initVault, getBnbConfig, getBtcConfig, getDaiConfig, getEthConfig } = require("../core/Vault/helpers")
+const { priceFeedIds, priceUpdateData } = require("../shared/pyth")
 
 use(solidity)
 
@@ -18,7 +19,7 @@ describe("FeeRouter", function () {
     let timelock
     let usdg
     let router
-    let positionUtils
+    let PositionUtils_0_8_18
     let positionRouter
     let referralStorage
     let bnb
@@ -33,29 +34,25 @@ describe("FeeRouter", function () {
     let yieldTracker0
     let distributor1
     let yieldTracker1
-    let fastPriceFeed
-    let fastPriceEvents
     let shortsTracker
-    let busdPriceFeed;
     let FeeRouter;
+    let pyth
 
     beforeEach(async () => {
+        pyth = await deployContract("Pyth", [])
         bnb = await deployContract("Token", [])
-        bnbPriceFeed = await deployContract("PriceFeed", [])
+        bnbPriceFeed = await deployContract("PythPriceFeedV2", [pyth.address,priceFeedIds.bnb,10000])
         await bnb.connect(minter).deposit({ value: expandDecimals(100, 18) })
 
         btc = await deployContract("Token", [])
-        btcPriceFeed = await deployContract("PriceFeed", [])
+        btcPriceFeed = await deployContract("PythPriceFeedV2", [pyth.address,priceFeedIds.btc,10000])
 
         eth = await deployContract("Token", [])
-        ethPriceFeed = await deployContract("PriceFeed", [])
+        ethPriceFeed = await deployContract("PythPriceFeedV2", [pyth.address,priceFeedIds.eth,10000])
         await eth.connect(minter).deposit({ value: expandDecimals(30, 18) })
 
         dai = await deployContract("Token", [])
-        daiPriceFeed = await deployContract("PriceFeed", [])
-
-        busd = await deployContract("Token", [])
-        busdPriceFeed = await deployContract("PriceFeed", [])
+        daiPriceFeed = await deployContract("PythPriceFeedV2", [pyth.address,priceFeedIds.dai,10000])
 
         vault = await deployVault()
         timelock = await deployTimelock([
@@ -71,17 +68,17 @@ describe("FeeRouter", function () {
         ])
 
         usdg = await deployContract("USDG", [vault.address])
-        router = await deployContract("Router", [vault.address, usdg.address, bnb.address])
+        router = await deployContract("Router", [vault.address, usdg.address, bnb.address, pyth.address])
 
         shortsTracker = await deployContract("ShortsTracker", [vault.address])
         await shortsTracker.setIsGlobalShortDataReady(true)
 
-        positionUtils = await deployContract("PositionUtils", [])
+        PositionUtils_0_8_18 = await deployContract("PositionUtils_0_8_18", [])
 
         const proxyBlockInfo = await deployProxyBlockInfo()
-        positionRouter = await deployContract("PositionRouter", [vault.address, router.address, bnb.address, shortsTracker.address, depositFee, minExecutionFee, proxyBlockInfo.address], {
+        positionRouter = await deployContract("PositionRouterV2", [vault.address, router.address, bnb.address, shortsTracker.address, depositFee, minExecutionFee, proxyBlockInfo.address,pyth.address], {
             libraries: {
-                PositionUtils: positionUtils.address
+                PositionUtils_0_8_18: PositionUtils_0_8_18.address
             }
         })
         await shortsTracker.setHandler(positionRouter.address, true)
@@ -119,35 +116,20 @@ describe("FeeRouter", function () {
         await vaultPriceFeed.setTokenConfig(eth.address, ethPriceFeed.address, 8, false)
         await vaultPriceFeed.setTokenConfig(dai.address, daiPriceFeed.address, 8, false)
 
-        await daiPriceFeed.setLatestAnswer(toChainlinkPrice(1))
+        await pyth.updatePrice(priceFeedIds.dai, toChainlinkPrice(1))
         await vault.setTokenConfig(...getDaiConfig(dai, daiPriceFeed))
 
-        await btcPriceFeed.setLatestAnswer(toChainlinkPrice(60000))
+        await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(60000))
         await vault.setTokenConfig(...getBtcConfig(btc, btcPriceFeed))
 
-        await bnbPriceFeed.setLatestAnswer(toChainlinkPrice(300))
+        await pyth.updatePrice(priceFeedIds.bnb, toChainlinkPrice(300))
         await vault.setTokenConfig(...getBnbConfig(bnb, bnbPriceFeed))
 
-        await ethPriceFeed.setLatestAnswer(toChainlinkPrice(1000))
+        await pyth.updatePrice(priceFeedIds.eth, toChainlinkPrice(1000))
         await vault.setTokenConfig(...getEthConfig(eth, ethPriceFeed))
 
         await vault.setIsLeverageEnabled(false)
         await vault.setGov(timelock.address)
-
-        fastPriceEvents = await deployContract("FastPriceEvents", [])
-        fastPriceFeed = await deployFastPriceFeed([
-            5 * 60, // _priceDuration
-            120 * 60, // _maxPriceUpdateDelay
-            2, // _minBlockInterval
-            250, // _maxDeviationBasisPoints
-            fastPriceEvents.address, // _fastPriceEvents
-            tokenManager.address // _tokenManager
-        ])
-        await fastPriceFeed.initialize(2, [signer0.address, signer1.address], [updater0.address, updater1.address])
-        await fastPriceEvents.setIsPriceFeed(fastPriceFeed.address, true)
-
-        await fastPriceFeed.setVaultPriceFeed(vaultPriceFeed.address)
-        await vaultPriceFeed.setSecondaryPriceFeed(fastPriceFeed.address)
 
         FeeRouter = await deployContract("FeeRouter", [timelock.address, vault.address, [positionRouter.address]]);
 
@@ -203,7 +185,7 @@ describe("FeeRouter", function () {
         await positionRouter.setPositionKeeper(positionKeeper.address, true)
 
         await positionRouter.connect(user0).createIncreasePosition(...params.concat([4000, referralCode, AddressZero]), { value: 4000 })
-        await positionRouter.connect(positionKeeper).executeIncreasePosition(key, executionFeeReceiver.address)
+        await positionRouter.connect(positionKeeper)["executeIncreasePosition(bytes32,address,bytes[])"](key, executionFeeReceiver.address, priceUpdateData)
         expect(await provider.getBalance(executionFeeReceiver.address)).eq(4000)
 
         params = [
@@ -223,7 +205,7 @@ describe("FeeRouter", function () {
         key = await positionRouter.getRequestKey(user0.address, 2)
 
         expect(await positionRouter.feeReserves(bnb.address)).eq(0)
-        await positionRouter.connect(positionKeeper).executeIncreasePosition(key, executionFeeReceiver.address)
+        await positionRouter.connect(positionKeeper)["executeIncreasePosition(bytes32,address,bytes[])"](key, executionFeeReceiver.address, priceUpdateData)
         expect(await provider.getBalance(executionFeeReceiver.address)).eq(8000)
         expect(await positionRouter.feeReserves(dai.address)).eq(0)
         expect(await positionRouter.feeReserves(bnb.address)).eq("9970000000000000") // 0.00997
@@ -251,7 +233,7 @@ describe("FeeRouter", function () {
         let key2 = await positionRouter.getRequestKey(user2.address, 1)
 
         await positionRouter.connect(user2).createIncreasePosition(...params2.concat([4000, referralCode, AddressZero]), { value: 4000 })
-        await positionRouter.connect(positionKeeper).executeIncreasePosition(key2, executionFeeReceiver.address)
+        await positionRouter.connect(positionKeeper)["executeIncreasePosition(bytes32,address,bytes[])"](key2, executionFeeReceiver.address, priceUpdateData)
 
         params2 = [
             [dai.address, eth.address], // _path
@@ -269,7 +251,7 @@ describe("FeeRouter", function () {
         await positionRouter.connect(user2).createIncreasePosition(...params2.concat([4000, referralCode, AddressZero]), { value: 4000 })
         key = await positionRouter.getRequestKey(user2.address, 2)
 
-        await positionRouter.connect(positionKeeper).executeIncreasePosition(key2, executionFeeReceiver.address)
+        await positionRouter.connect(positionKeeper)["executeIncreasePosition(bytes32,address,bytes[])"](key2, executionFeeReceiver.address, priceUpdateData)
 
         const feeReservesEth = await positionRouter.feeReserves(eth.address)
         const feeReservesVEth = await vault.feeReserves(eth.address)

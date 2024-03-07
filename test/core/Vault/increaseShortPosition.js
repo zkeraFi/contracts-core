@@ -5,6 +5,7 @@ const { expandDecimals, getBlockTime, increaseTime, mineBlock, reportGasUsed } =
 const { toChainlinkPrice } = require("../../shared/chainlink")
 const { toUsd, toNormalizedPrice } = require("../../shared/units")
 const { initVault, getBnbConfig, getBtcConfig, getDaiConfig } = require("./helpers")
+const { priceFeedIds } = require("../../shared/pyth")
 
 use(solidity)
 
@@ -17,29 +18,31 @@ describe("Vault.increaseShortPosition", function () {
   let zlp
   let usdg
   let router
-  let bnb
-  let bnbPriceFeed
+  let eth
+  let ethPriceFeed
   let btc
   let btcPriceFeed
   let dai
   let daiPriceFeed
   let distributor0
   let yieldTracker0
+  let pyth
 
   beforeEach(async () => {
-    bnb = await deployContract("Token", [])
-    bnbPriceFeed = await deployContract("PriceFeed", [])
+    pyth = await deployContract("Pyth", [])
+    eth = await deployContract("Token", [])
+    ethPriceFeed = await deployContract("PythPriceFeedV2", [pyth.address,priceFeedIds.eth,10000])
 
     btc = await deployContract("Token", [])
-    btcPriceFeed = await deployContract("PriceFeed", [])
+    btcPriceFeed = await deployContract("PythPriceFeedV2", [pyth.address,priceFeedIds.btc,10000])
 
     dai = await deployContract("Token", [])
-    daiPriceFeed = await deployContract("PriceFeed", [])
+    daiPriceFeed = await deployContract("PythPriceFeedV2", [pyth.address,priceFeedIds.dai,10000])
 
     vault = await deployVault()
     zlp = await deployContract("ZLP", [])
     usdg = await deployContract("USDG", [vault.address])
-    router = await deployContract("Router", [vault.address, usdg.address, bnb.address])
+    router = await deployContract("Router", [vault.address, usdg.address, eth.address,pyth.address])
     vaultPriceFeed = await deployVaultPriceFeed()
 
     const initVaultResult = await initVault(vault, router, usdg, vaultPriceFeed)
@@ -49,26 +52,26 @@ describe("Vault.increaseShortPosition", function () {
     yieldTracker0 = await deployContract("YieldTracker", [usdg.address])
 
     await yieldTracker0.setDistributor(distributor0.address)
-    await distributor0.setDistribution([yieldTracker0.address], [1000], [bnb.address])
+    await distributor0.setDistribution([yieldTracker0.address], [1000], [eth.address])
 
-    await bnb.mint(distributor0.address, 5000)
+    await eth.mint(distributor0.address, 5000)
     await usdg.setYieldTrackers([yieldTracker0.address])
 
-    await vaultPriceFeed.setTokenConfig(bnb.address, bnbPriceFeed.address, 8, false)
+    await vaultPriceFeed.setTokenConfig(eth.address, ethPriceFeed.address, 8, false)
     await vaultPriceFeed.setTokenConfig(btc.address, btcPriceFeed.address, 8, false)
     await vaultPriceFeed.setTokenConfig(dai.address, daiPriceFeed.address, 8, false)
   })
 
   it("increasePosition short validations", async () => {
-    await bnbPriceFeed.setLatestAnswer(toChainlinkPrice(300))
-    await vault.setTokenConfig(...getBnbConfig(bnb, bnbPriceFeed))
+    await pyth.updatePrice(priceFeedIds.eth, toChainlinkPrice(300))
+    await vault.setTokenConfig(...getBnbConfig(eth, ethPriceFeed))
     await expect(vault.connect(user1).increasePosition(user0.address, dai.address, btc.address, 0, false))
       .to.be.revertedWith("Vault: invalid msg.sender")
     await expect(vault.connect(user0).increasePosition(user0.address, dai.address, btc.address, toUsd(1000), false))
       .to.be.revertedWith("Vault: _collateralToken not whitelisted")
-    await expect(vault.connect(user0).increasePosition(user0.address, bnb.address, bnb.address, toUsd(1000), false))
+    await expect(vault.connect(user0).increasePosition(user0.address, eth.address, eth.address, toUsd(1000), false))
       .to.be.revertedWith("Vault: _collateralToken must be a stableToken")
-    await daiPriceFeed.setLatestAnswer(toChainlinkPrice(1))
+    await pyth.updatePrice(priceFeedIds.dai, toChainlinkPrice(1))
     await vault.setTokenConfig(...getDaiConfig(dai, daiPriceFeed))
 
     await expect(vault.connect(user0).increasePosition(user0.address, dai.address, dai.address, toUsd(1000), false))
@@ -77,7 +80,7 @@ describe("Vault.increaseShortPosition", function () {
     await expect(vault.connect(user0).increasePosition(user0.address, dai.address, btc.address, toUsd(1000), false))
       .to.be.revertedWith("Vault: _indexToken not shortable")
 
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(60000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(60000))
     await vault.setTokenConfig(
       btc.address, // _token
       8, // _tokenDecimals
@@ -93,8 +96,8 @@ describe("Vault.increaseShortPosition", function () {
 
     await vault.setTokenConfig(...getBtcConfig(btc, btcPriceFeed))
 
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(40000))
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(50000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(40000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(50000))
 
     await expect(vault.connect(user0).increasePosition(user0.address, dai.address, btc.address, toUsd(1000), false))
       .to.be.revertedWith("Vault: insufficient collateral for fees")
@@ -112,9 +115,9 @@ describe("Vault.increaseShortPosition", function () {
     await expect(vault.connect(user0).increasePosition(user0.address, dai.address, btc.address, toUsd(1000), false))
       .to.be.reverted //Vault: losses exceed collateral
 
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(40000))
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(41000))
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(40000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(40000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(41000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(40000))
 
     await expect(vault.connect(user0).increasePosition(user0.address, dai.address, btc.address, toUsd(100), false))
       .to.be.reverted //Vault: liquidation fees exceed collateral
@@ -124,9 +127,9 @@ describe("Vault.increaseShortPosition", function () {
     await expect(vault.connect(user0).increasePosition(user0.address, dai.address, btc.address, toUsd(8), false))
       .to.be.revertedWith("Vault: _size must be more than _collateral")
 
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(40000))
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(40000))
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(40000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(40000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(40000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(40000))
 
     await expect(vault.connect(user0).increasePosition(user0.address, dai.address, btc.address, toUsd(600), false))
       .to.be.reverted //Vault: maxLeverage exceeded
@@ -156,18 +159,18 @@ describe("Vault.increaseShortPosition", function () {
       false // _hasDynamicFees
     )
 
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(60000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(60000))
     await vault.setTokenConfig(...getBtcConfig(btc, btcPriceFeed))
 
-    await bnbPriceFeed.setLatestAnswer(toChainlinkPrice(1000))
-    await vault.setTokenConfig(...getBnbConfig(bnb, bnbPriceFeed))
+    await pyth.updatePrice(priceFeedIds.eth, toChainlinkPrice(1000))
+    await vault.setTokenConfig(...getBnbConfig(eth, ethPriceFeed))
 
-    await daiPriceFeed.setLatestAnswer(toChainlinkPrice(1))
+    await pyth.updatePrice(priceFeedIds.dai, toChainlinkPrice(1))
     await vault.setTokenConfig(...getDaiConfig(dai, daiPriceFeed))
 
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(40000))
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(40000))
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(40000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(40000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(40000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(40000))
 
     await dai.mint(user0.address, expandDecimals(1000, 18))
     await dai.connect(user0).transfer(vault.address, expandDecimals(500, 18))
@@ -213,7 +216,7 @@ describe("Vault.increaseShortPosition", function () {
     expect(position[6]).eq(true) // hasProfit
     expect(position[7]).eq(0) // lastIncreasedTime
 
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(41000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(41000))
     const tx = await vault.connect(user0).increasePosition(user0.address, dai.address, btc.address, toUsd(90), false)
     await reportGasUsed(provider, tx, "increasePosition gas used")
 
@@ -227,7 +230,7 @@ describe("Vault.increaseShortPosition", function () {
     position = await vault.getPosition(user0.address, dai.address, btc.address, false)
     expect(position[0]).eq(toUsd(90)) // size
     expect(position[1]).eq(toUsd(19.91)) // collateral
-    expect(position[2]).eq(toNormalizedPrice(40000)) // averagePrice
+    expect(position[2]).eq(toNormalizedPrice(41000)) // averagePrice
     expect(position[3]).eq(0) // entryFundingRate
     expect(position[4]).eq(expandDecimals(90, 18)) // reserveAmount
     expect(position[5]).eq(0) // realisedPnl
@@ -239,80 +242,80 @@ describe("Vault.increaseShortPosition", function () {
     expect(await vault.poolAmounts(dai.address)).eq("499800000000000000000") // 499.8
 
     expect(await vault.globalShortSizes(btc.address)).eq(toUsd(90))
-    expect(await vault.globalShortAveragePrices(btc.address)).eq(toNormalizedPrice(40000))
+    expect(await vault.globalShortAveragePrices(btc.address)).eq(toNormalizedPrice(41000))
 
     globalDelta = await vault.getGlobalShortDelta(btc.address)
     expect(await globalDelta[0]).eq(false)
-    expect(await globalDelta[1]).eq(toUsd(2.25))
-    expect(await zlpManager.getAumInUsdg(true)).eq("502050000000000000000")
+    expect(await globalDelta[1]).eq(0)
+    expect(await zlpManager.getAumInUsdg(true)).eq("499800000000000000000")
     expect(await zlpManager.getAumInUsdg(false)).eq("499800000000000000000")
 
     let delta = await vault.getPositionDelta(user0.address, dai.address, btc.address, false)
     expect(delta[0]).eq(false)
-    expect(delta[1]).eq(toUsd(2.25))
+    expect(delta[1]).eq(0)
 
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(42000))
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(42000))
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(42000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(42000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(42000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(42000))
 
     delta = await vault.getPositionDelta(user0.address, dai.address, btc.address, false)
     expect(delta[0]).eq(false)
-    expect(delta[1]).eq(toUsd(4.5))
+    expect(delta[1]).eq("2195121951219512195121951219512")
 
     globalDelta = await vault.getGlobalShortDelta(btc.address)
     expect(await globalDelta[0]).eq(false)
-    expect(await globalDelta[1]).eq(toUsd(4.5))
-    expect(await zlpManager.getAumInUsdg(true)).eq("504300000000000000000") // 499.8 + 4.5
-    expect(await zlpManager.getAumInUsdg(false)).eq("504300000000000000000") // 499.8 + 4.5
+    expect(await globalDelta[1]).eq("2195121951219512195121951219512")
+    expect(await zlpManager.getAumInUsdg(true)).eq("501995121951219512195") // 499.8 + 4.5
+    expect(await zlpManager.getAumInUsdg(false)).eq("501995121951219512195") // 499.8 + 4.5
 
     await vault.connect(user0).decreasePosition(user0.address, dai.address, btc.address, toUsd(3), toUsd(50), false, user2.address)
 
     position = await vault.getPosition(user0.address, dai.address, btc.address, false)
     expect(position[0]).eq(toUsd(40)) // size
-    expect(position[1]).eq(toUsd(14.41)) // collateral
-    expect(position[2]).eq(toNormalizedPrice(40000)) // averagePrice
+    expect(position[1]).eq("15690487804878048780487804878049") // collateral
+    expect(position[2]).eq(toNormalizedPrice(41000))
     expect(position[3]).eq(0) // entryFundingRate
     expect(position[4]).eq(expandDecimals(40, 18)) // reserveAmount
-    expect(position[5]).eq(toUsd(2.5)) // realisedPnl
+    expect(position[5]).eq("1219512195121951219512195121951") // realisedPnl
     expect(position[6]).eq(false) // hasProfit
     expect(position[7]).eq(blockTime) // lastIncreasedTime
 
     delta = await vault.getPositionDelta(user0.address, dai.address, btc.address, false)
     expect(delta[0]).eq(false)
-    expect(delta[1]).eq(toUsd(2))
+    expect(delta[1]).eq("975609756097560975609756097560")
 
     expect(await vault.feeReserves(dai.address)).eq("340000000000000000") // 0.18
     expect(await vault.usdgAmounts(dai.address)).eq("499800000000000000000") // 499.8
-    expect(await vault.poolAmounts(dai.address)).eq("502300000000000000000") // 502.3
+    expect(await vault.poolAmounts(dai.address)).eq("501019512195121951219") // 502.3
 
     expect(await vault.globalShortSizes(btc.address)).eq(toUsd(40))
-    expect(await vault.globalShortAveragePrices(btc.address)).eq(toNormalizedPrice(40000))
+    expect(await vault.globalShortAveragePrices(btc.address)).eq(toNormalizedPrice(41000))
 
     globalDelta = await vault.getGlobalShortDelta(btc.address)
     expect(await globalDelta[0]).eq(false)
-    expect(await globalDelta[1]).eq(toUsd(2))
-    expect(await zlpManager.getAumInUsdg(true)).eq("504300000000000000000") // 499.8 + 4.5
-    expect(await zlpManager.getAumInUsdg(false)).eq("504300000000000000000") // 499.8 + 4.5
+    expect(await globalDelta[1]).eq("975609756097560975609756097560")
+    expect(await zlpManager.getAumInUsdg(true)).eq("501995121951219512194") // 499.8 + 4.5
+    expect(await zlpManager.getAumInUsdg(false)).eq("501995121951219512194") // 499.8 + 4.5
 
     await dai.mint(vault.address, expandDecimals(50, 18))
     await vault.connect(user1).increasePosition(user1.address, dai.address, btc.address, toUsd(200), false)
 
     expect(await vault.globalShortSizes(btc.address)).eq(toUsd(240))
-    expect(await vault.globalShortAveragePrices(btc.address)).eq("41652892561983471074380165289256198")
+    expect(await vault.globalShortAveragePrices(btc.address)).eq("41829959514170040485829959514170209")
 
     globalDelta = await vault.getGlobalShortDelta(btc.address)
     expect(await globalDelta[0]).eq(false)
-    expect(await globalDelta[1]).eq(toUsd(2))
-    expect(await zlpManager.getAumInUsdg(true)).eq("504300000000000000000") // 502.3 + 2
-    expect(await zlpManager.getAumInUsdg(false)).eq("504300000000000000000") // 502.3 + 2
+    expect(await globalDelta[1]).eq("975609756097560975609756097560")
+    expect(await zlpManager.getAumInUsdg(true)).eq("501995121951219512194") // 502.3 + 2
+    expect(await zlpManager.getAumInUsdg(false)).eq("501995121951219512194") // 502.3 + 2
 
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(40000))
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(40000))
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(41000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(40000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(40000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(41000))
 
     delta = await vault.getPositionDelta(user0.address, dai.address, btc.address, false)
     expect(delta[0]).eq(false)
-    expect(delta[1]).eq(toUsd(1))
+    expect(delta[1]).eq(0)
 
     delta = await vault.getPositionDelta(user1.address, dai.address, btc.address, false)
     expect(delta[0]).eq(true)
@@ -320,27 +323,27 @@ describe("Vault.increaseShortPosition", function () {
 
     globalDelta = await vault.getGlobalShortDelta(btc.address)
     expect(await globalDelta[0]).eq(true)
-    expect(await globalDelta[1]).eq("3761904761904761904761904761904")
-    expect(await zlpManager.getAumInUsdg(true)).eq("498538095238095238095") // 502.3 + 1 - 4.76 => 498.53
-    expect(await zlpManager.getAumInUsdg(false)).eq("492776190476190476190") // 492.77619047619047619
+    expect(await globalDelta[1]).eq("4761904761904761904761904761905")
+    expect(await zlpManager.getAumInUsdg(true)).eq("496257607433217189314") // 502.3 + 1 - 4.76 => 498.53
+    expect(await zlpManager.getAumInUsdg(false)).eq("496257607433217189314") // 492.77619047619047619
 
     await dai.mint(vault.address, expandDecimals(20, 18))
     await vault.connect(user2).increasePosition(user2.address, dai.address, btc.address, toUsd(60), false)
 
     expect(await vault.globalShortSizes(btc.address)).eq(toUsd(300))
-    expect(await vault.globalShortAveragePrices(btc.address)).eq("41311475409836065573770491803278614")
+    expect(await vault.globalShortAveragePrices(btc.address)).eq("41661290322580645161290322580645194")
 
     globalDelta = await vault.getGlobalShortDelta(btc.address)
     expect(await globalDelta[0]).eq(true)
-    expect(await globalDelta[1]).eq("2261904761904761904761904761904")
-    expect(await zlpManager.getAumInUsdg(true)).eq("500038095238095238095") // 500.038095238095238095
-    expect(await zlpManager.getAumInUsdg(false)).eq("492776190476190476190") // 492.77619047619047619
+    expect(await globalDelta[1]).eq("4761904761904761904761904761904")
+    expect(await zlpManager.getAumInUsdg(true)).eq("496257607433217189314") // 500.038095238095238095
+    expect(await zlpManager.getAumInUsdg(false)).eq("496257607433217189314") // 492.77619047619047619
 
     await dai.mint(vault.address, expandDecimals(20, 18))
 
     await expect(vault.connect(user2).increasePosition(user2.address, dai.address, btc.address, toUsd(60), false))
       .to.be.reverted //Vault: max shorts exceeded
 
-    await vault.connect(user2).increasePosition(user2.address, dai.address, bnb.address, toUsd(60), false)
+    await vault.connect(user2).increasePosition(user2.address, dai.address, eth.address, toUsd(60), false)
   })
 })

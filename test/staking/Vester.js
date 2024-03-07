@@ -508,7 +508,7 @@ describe("Vester", function () {
     await esZke.mint(stakedZkeDistributor.address, expandDecimals(50000 * 12, 18))
     await stakedZkeDistributor.setTokensPerInterval("20667989410000000") // 0.02066798941 esZke per second
 
-    const rewardRouter = await deployContract("RewardRouter", [])
+    const rewardRouter = await deployContract("RewardRouterV4", [])
     await rewardRouter.initialize(
       eth.address,
       zke.address,
@@ -518,6 +518,14 @@ describe("Vester", function () {
       stakedZkeTracker.address,
       bonusZkeTracker.address,
       feeZkeTracker.address,
+      AddressZero,
+      AddressZero,
+      AddressZero,
+      AddressZero,
+      AddressZero,
+      AddressZero,
+      AddressZero,
+      AddressZero,
       AddressZero,
       AddressZero,
       AddressZero
@@ -725,7 +733,7 @@ describe("Vester", function () {
     await esZke.mint(stakedZkeDistributor.address, expandDecimals(50000 * 12, 18))
     await stakedZkeDistributor.setTokensPerInterval("20667989410000000") // 0.02066798941 esZke per second
 
-    const rewardRouter = await deployContract("RewardRouter", [])
+    const rewardRouter = await deployContract("RewardRouterV4", [])
     await rewardRouter.initialize(
       eth.address,
       zke.address,
@@ -735,6 +743,14 @@ describe("Vester", function () {
       stakedZkeTracker.address,
       bonusZkeTracker.address,
       feeZkeTracker.address,
+      AddressZero,
+      AddressZero,
+      AddressZero,
+      AddressZero,
+      AddressZero,
+      AddressZero,
+      AddressZero,
+      AddressZero,
       AddressZero,
       AddressZero,
       AddressZero

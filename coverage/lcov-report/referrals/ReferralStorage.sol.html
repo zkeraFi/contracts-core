@@ -1,0 +1,422 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <title>Code coverage report for referrals\ReferralStorage.sol</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="../prettify.css" />
+    <link rel="stylesheet" href="../base.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style type='text/css'>
+        .coverage-summary .sorter {
+            background-image: url(../sort-arrow-sprite.png);
+        }
+    </style>
+</head>
+<body>
+<div class='wrapper'>
+  <div class='pad1'>
+    <h1>
+      <a href="../index.html">all files</a> / <a href="index.html">referrals/</a> ReferralStorage.sol
+    </h1>
+    <div class='clearfix'>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">100% </span>
+        <span class="quiet">Statements</span>
+        <span class='fraction'>25/25</span>
+      </div>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">96.67% </span>
+        <span class="quiet">Branches</span>
+        <span class='fraction'>29/30</span>
+      </div>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">100% </span>
+        <span class="quiet">Functions</span>
+        <span class='fraction'>12/12</span>
+      </div>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">100% </span>
+        <span class="quiet">Lines</span>
+        <span class='fraction'>37/37</span>
+      </div>
+    </div>
+  </div>
+  <div class='status-line high'></div>
+<pre><table class="coverage">
+<tr><td class="line-count quiet">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65
+66
+67
+68
+69
+70
+71
+72
+73
+74
+75
+76
+77
+78
+79
+80
+81
+82
+83
+84
+85
+86
+87
+88
+89
+90
+91
+92
+93
+94
+95
+96
+97
+98
+99
+100
+101
+102
+103
+104
+105
+106
+107
+108
+109
+110
+111
+112
+113
+114
+115
+116
+117
+118
+119
+120</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">51×</span>
+<span class="cline-any cline-yes">50×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">46×</span>
+<span class="cline-any cline-yes">46×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">5×</span>
+<span class="cline-any cline-yes">4×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3×</span>
+<span class="cline-any cline-yes">3×</span>
+<span class="cline-any cline-yes">3×</span>
+<span class="cline-any cline-yes">3×</span>
+<span class="cline-any cline-yes">3×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2×</span>
+<span class="cline-any cline-yes">2×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">50×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">8×</span>
+<span class="cline-any cline-yes">6×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">5×</span>
+<span class="cline-any cline-yes">5×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2×</span>
+<span class="cline-any cline-yes">2×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">52×</span>
+<span class="cline-any cline-yes">52×</span>
+<span class="cline-any cline-yes">52×</span>
+<span class="cline-any cline-yes">46×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">52×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">51×</span>
+<span class="cline-any cline-yes">51×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// SPDX-License-Identifier: MIT
+&nbsp;
+pragma solidity 0.6.12;
+&nbsp;
+import "../libraries/math/SafeMath.sol";
+&nbsp;
+import "../access/Governable.sol";
+import "../peripherals/interfaces/ITimelock.sol";
+&nbsp;
+import "./interfaces/IReferralStorage.sol";
+&nbsp;
+contract ReferralStorage is Governable, IReferralStorage {
+    using SafeMath for uint256;
+&nbsp;
+    struct Tier {
+        uint256 totalRebate; // e.g. 2400 for 24%
+        uint256 discountShare; // 5000 for 50%/50%, 7000 for 30% rebates/70% discount
+    }
+&nbsp;
+    uint256 public constant BASIS_POINTS = 10000;
+&nbsp;
+    mapping (address =&gt; uint256) public override referrerDiscountShares; // to override default value in tier
+    mapping (address =&gt; uint256) public override referrerTiers; // link between user &lt;&gt; tier
+    mapping (uint256 =&gt; Tier) public tiers;
+&nbsp;
+    mapping (address =&gt; bool) public isHandler;
+&nbsp;
+    mapping (bytes32 =&gt; address) public override codeOwners;
+    mapping (address =&gt; bytes32) public override traderReferralCodes;
+&nbsp;
+    event SetHandler(address handler, bool isActive);
+    event SetTraderReferralCode(address account, bytes32 code);
+    event SetTier(uint256 tierId, uint256 totalRebate, uint256 discountShare);
+    event SetReferrerTier(address referrer, uint256 tierId);
+    event SetReferrerDiscountShare(address referrer, uint256 discountShare);
+    event RegisterCode(address account, bytes32 code);
+    event SetCodeOwner(address account, address newAccount, bytes32 code);
+    event GovSetCodeOwner(bytes32 code, address newAccount);
+&nbsp;
+    modifier onlyHandler() {
+        require(isHandler[msg.sender], "ReferralStorage: forbidden");
+        _;
+    }
+&nbsp;
+    function setHandler(address _handler, bool _isActive) external onlyGov {
+        isHandler[_handler] = _isActive;
+        emit SetHandler(_handler, _isActive);
+    }
+&nbsp;
+    function setTier(uint256 _tierId, uint256 _totalRebate, uint256 _discountShare) external override onlyGov {
+        require(_totalRebate &lt;= BASIS_POINTS, "ReferralStorage: invalid totalRebate");
+        require(_discountShare &lt;= BASIS_POINTS, "ReferralStorage: invalid discountShare");
+&nbsp;
+        Tier memory tier = tiers[_tierId];
+        tier.totalRebate = _totalRebate;
+        tier.discountShare = _discountShare;
+        tiers[_tierId] = tier;
+        emit SetTier(_tierId, _totalRebate, _discountShare);
+    }
+&nbsp;
+    function setReferrerTier(address _referrer, uint256 _tierId) external override onlyGov {
+        referrerTiers[_referrer] = _tierId;
+        emit SetReferrerTier(_referrer, _tierId);
+    }
+&nbsp;
+    function setReferrerDiscountShare(uint256 _discountShare) external {
+        require(_discountShare &lt;= BASIS_POINTS, "ReferralStorage: invalid discountShare");
+&nbsp;
+        referrerDiscountShares[msg.sender] = _discountShare;
+        emit SetReferrerDiscountShare(msg.sender, _discountShare);
+    }
+&nbsp;
+    function setTraderReferralCode(address _account, bytes32 _code) external override onlyHandler {
+        _setTraderReferralCode(_account, _code);
+    }
+&nbsp;
+    function setTraderReferralCodeByUser(bytes32 _code) external {
+        _setTraderReferralCode(msg.sender, _code);
+    }
+&nbsp;
+    function registerCode(bytes32 _code) external {
+        require(_code != bytes32(0), "ReferralStorage: invalid _code");
+        require(codeOwners[_code] == address(0), "ReferralStorage: code already exists");
+&nbsp;
+        codeOwners[_code] = msg.sender;
+        emit RegisterCode(msg.sender, _code);
+    }
+&nbsp;
+    function setCodeOwner(bytes32 _code, address _newAccount) external {
+        require(_code != bytes32(0), "ReferralStorage: invalid _code");
+&nbsp;
+        address account = codeOwners[_code];
+        require(msg.sender == account, "ReferralStorage: forbidden");
+&nbsp;
+        codeOwners[_code] = _newAccount;
+        emit SetCodeOwner(msg.sender, _newAccount, _code);
+    }
+&nbsp;
+    function govSetCodeOwner(bytes32 _code, address _newAccount) external override onlyGov {
+        <span class="missing-if-branch" title="else path not taken" >E</span>require(_code != bytes32(0), "ReferralStorage: invalid _code");
+&nbsp;
+        codeOwners[_code] = _newAccount;
+        emit GovSetCodeOwner(_code, _newAccount);
+    }
+&nbsp;
+    function getTraderReferralInfo(address _account) external override view returns (bytes32, address) {
+        bytes32 code = traderReferralCodes[_account];
+        address referrer;
+        if (code != bytes32(0)) {
+            referrer = codeOwners[code];
+        }
+        return (code, referrer);
+    }
+&nbsp;
+    function _setTraderReferralCode(address _account, bytes32 _code) private {
+        traderReferralCodes[_account] = _code;
+        emit SetTraderReferralCode(_account, _code);
+    }
+}
+&nbsp;</pre></td></tr>
+</table></pre>
+<div class='push'></div><!-- for sticky footer -->
+</div><!-- /wrapper -->
+<div class='footer quiet pad2 space-top1 center small'>
+  Code coverage
+  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Thu Mar 07 2024 06:38:22 GMT+0200 (Eastern European Standard Time)
+</div>
+</div>
+<script src="../prettify.js"></script>
+<script>
+window.onload = function () {
+        if (typeof prettyPrint === 'function') {
+            prettyPrint();
+        }
+};
+</script>
+<script src="../sorter.js"></script>
+</body>
+</html>

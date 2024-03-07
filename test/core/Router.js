@@ -5,6 +5,7 @@ const { expandDecimals, getBlockTime, increaseTime, mineBlock, reportGasUsed, ne
 const { toChainlinkPrice } = require("../shared/chainlink")
 const { toUsd, toNormalizedPrice } = require("../shared/units")
 const { initVault, getBnbConfig, getBtcConfig, getDaiConfig } = require("./Vault/helpers")
+const { priceFeedIds, priceUpdateData } = require("../shared/pyth")
 
 use(solidity)
 
@@ -23,31 +24,27 @@ describe("Router", function () {
   let ethPriceFeed
   let dai
   let daiPriceFeed
-  let busd
-  let busdPriceFeed
   let distributor0
   let yieldTracker0
   let reader
-
+let pyth;
   beforeEach(async () => {
+    pyth = await deployContract("Pyth", [])
     bnb = await deployContract("Token", [])
-    bnbPriceFeed = await deployContract("PriceFeed", [])
+    bnbPriceFeed = await deployContract("PythPriceFeedV2", [pyth.address,priceFeedIds.bnb,10000])
 
     btc = await deployContract("Token", [])
-    btcPriceFeed = await deployContract("PriceFeed", [])
+    btcPriceFeed = await deployContract("PythPriceFeedV2", [pyth.address,priceFeedIds.btc,10000])
 
     eth = await deployContract("Token", [])
-    ethPriceFeed = await deployContract("PriceFeed", [])
+    ethPriceFeed = await deployContract("PythPriceFeedV2", [pyth.address,priceFeedIds.eth,10000])
 
     dai = await deployContract("Token", [])
-    daiPriceFeed = await deployContract("PriceFeed", [])
+    daiPriceFeed = await deployContract("PythPriceFeedV2", [pyth.address,priceFeedIds.dai,10000])
 
-    busd = await deployContract("Token", [])
-    busdPriceFeed = await deployContract("PriceFeed", [])
-
-vault = await deployVault()
+    vault = await deployVault()
     usdg = await deployContract("USDG", [vault.address])
-    router = await deployContract("Router", [vault.address, usdg.address, bnb.address])
+    router = await deployContract("Router", [vault.address, usdg.address, bnb.address, pyth.address])
     vaultPriceFeed = await deployVaultPriceFeed()
 
     await initVault(vault, router, usdg, vaultPriceFeed)
@@ -68,13 +65,13 @@ vault = await deployVault()
     await vaultPriceFeed.setTokenConfig(eth.address, ethPriceFeed.address, 8, false)
     await vaultPriceFeed.setTokenConfig(dai.address, daiPriceFeed.address, 8, false)
 
-    await daiPriceFeed.setLatestAnswer(toChainlinkPrice(1))
+    await pyth.updatePrice(priceFeedIds.dai, toChainlinkPrice(1))
     await vault.setTokenConfig(...getDaiConfig(dai, daiPriceFeed))
 
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(60000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(60000))
     await vault.setTokenConfig(...getBtcConfig(btc, btcPriceFeed))
 
-    await bnbPriceFeed.setLatestAnswer(toChainlinkPrice(300))
+    await pyth.updatePrice(priceFeedIds.bnb, toChainlinkPrice(300))
     await vault.setTokenConfig(...getBnbConfig(bnb, bnbPriceFeed))
 
     await bnb.connect(user3).deposit({ value: expandDecimals(100, 18) })
@@ -183,12 +180,12 @@ vault = await deployVault()
     await dai.mint(user0.address, expandDecimals(200, 18))
     await dai.connect(user0).approve(router.address, expandDecimals(200, 18))
 
-    await expect(router.connect(user0).swap([dai.address, usdg.address], expandDecimals(200, 18), expandDecimals(201, 18), user0.address))
+    await expect(router.connect(user0).swap([dai.address, usdg.address], expandDecimals(200, 18), expandDecimals(201, 18), user0.address, priceUpdateData))
       .to.be.revertedWith("Router: insufficient amountOut")
 
     expect(await dai.balanceOf(user0.address)).eq(expandDecimals(200, 18))
     expect(await usdg.balanceOf(user0.address)).eq(0)
-    const tx = await router.connect(user0).swap([dai.address, usdg.address], expandDecimals(200, 18), expandDecimals(199, 18), user0.address)
+    const tx = await router.connect(user0).swap([dai.address, usdg.address], expandDecimals(200, 18), expandDecimals(199, 18), user0.address, priceUpdateData)
     await reportGasUsed(provider, tx, "buyUSDG gas used")
     expect(await dai.balanceOf(user0.address)).eq(0)
     expect(await usdg.balanceOf(user0.address)).eq("199400000000000000000") // 199.4
@@ -198,21 +195,21 @@ vault = await deployVault()
     await dai.mint(user0.address, expandDecimals(200, 18))
     await dai.connect(user0).approve(router.address, expandDecimals(200, 18))
 
-    await expect(router.connect(user0).swap([dai.address, usdg.address], expandDecimals(200, 18), expandDecimals(201, 18), user0.address))
+    await expect(router.connect(user0).swap([dai.address, usdg.address], expandDecimals(200, 18), expandDecimals(201, 18), user0.address, priceUpdateData))
       .to.be.revertedWith("Router: insufficient amountOut")
 
     expect(await dai.balanceOf(user0.address)).eq(expandDecimals(200, 18))
     expect(await usdg.balanceOf(user0.address)).eq(0)
-    const tx = await router.connect(user0).swap([dai.address, usdg.address], expandDecimals(200, 18), expandDecimals(199, 18), user0.address)
+    const tx = await router.connect(user0).swap([dai.address, usdg.address], expandDecimals(200, 18), expandDecimals(199, 18), user0.address, priceUpdateData)
     await reportGasUsed(provider, tx, "sellUSDG gas used")
     expect(await dai.balanceOf(user0.address)).eq(0)
     expect(await usdg.balanceOf(user0.address)).eq("199400000000000000000") // 199.4
 
     await usdg.connect(user0).approve(router.address, expandDecimals(100, 18))
-    await expect(router.connect(user0).swap([usdg.address, dai.address], expandDecimals(100, 18), expandDecimals(100, 18), user0.address))
+    await expect(router.connect(user0).swap([usdg.address, dai.address], expandDecimals(100, 18), expandDecimals(100, 18), user0.address, priceUpdateData))
       .to.be.revertedWith("Router: insufficient amountOut")
 
-    await router.connect(user0).swap([usdg.address, dai.address], expandDecimals(100, 18), expandDecimals(99, 18), user0.address)
+    await router.connect(user0).swap([usdg.address, dai.address], expandDecimals(100, 18), expandDecimals(99, 18), user0.address, priceUpdateData)
     expect(await dai.balanceOf(user0.address)).eq("99700000000000000000") // 99.7
     expect(await usdg.balanceOf(user0.address)).eq("99400000000000000000") // 99.4
   })
@@ -220,18 +217,18 @@ vault = await deployVault()
   it("swap, path.length == 2", async () => {
     await btc.mint(user0.address, expandDecimals(1, 8))
     await btc.connect(user0).approve(router.address, expandDecimals(1, 8))
-    await expect(router.connect(user0).swap([btc.address, usdg.address], expandDecimals(1, 8), expandDecimals(60000, 18), user0.address))
+    await expect(router.connect(user0).swap([btc.address, usdg.address], expandDecimals(1, 8), expandDecimals(60000, 18), user0.address, priceUpdateData))
       .to.be.revertedWith("Router: insufficient amountOut")
-    await router.connect(user0).swap([btc.address, usdg.address], expandDecimals(1, 8), expandDecimals(59000, 18), user0.address)
+    await router.connect(user0).swap([btc.address, usdg.address], expandDecimals(1, 8), expandDecimals(59000, 18), user0.address, priceUpdateData)
 
     await dai.mint(user0.address, expandDecimals(30000, 18))
     await dai.connect(user0).approve(router.address, expandDecimals(30000, 18))
-    await expect(router.connect(user0).swap([dai.address, btc.address], expandDecimals(30000, 18), "50000000", user0.address)) // 0.5 BTC
+    await expect(router.connect(user0).swap([dai.address, btc.address], expandDecimals(30000, 18), "50000000", user0.address, priceUpdateData)) // 0.5 BTC
       .to.be.revertedWith("Router: insufficient amountOut")
 
     expect(await dai.balanceOf(user0.address)).eq(expandDecimals(30000, 18))
     expect(await btc.balanceOf(user0.address)).eq(0)
-    const tx = await router.connect(user0).swap([dai.address, btc.address], expandDecimals(30000, 18), "49000000", user0.address)
+    const tx = await router.connect(user0).swap([dai.address, btc.address], expandDecimals(30000, 18), "49000000", user0.address, priceUpdateData)
     await reportGasUsed(provider, tx, "swap gas used")
     expect(await dai.balanceOf(user0.address)).eq(0)
     expect(await btc.balanceOf(user0.address)).eq("49850000") // 0.4985
@@ -240,100 +237,59 @@ vault = await deployVault()
   it("swap, path.length == 3", async () => {
     await btc.mint(user0.address, expandDecimals(1, 8))
     await btc.connect(user0).approve(router.address, expandDecimals(1, 8))
-    await router.connect(user0).swap([btc.address, usdg.address], expandDecimals(1, 8), expandDecimals(59000, 18), user0.address)
+    await router.connect(user0).swap([btc.address, usdg.address], expandDecimals(1, 8), expandDecimals(59000, 18), user0.address, priceUpdateData)
 
     await dai.mint(user0.address, expandDecimals(30000, 18))
     await dai.connect(user0).approve(router.address, expandDecimals(30000, 18))
-    await router.connect(user0).swap([dai.address, usdg.address], expandDecimals(30000, 18), expandDecimals(29000, 18), user0.address)
+    await router.connect(user0).swap([dai.address, usdg.address], expandDecimals(30000, 18), expandDecimals(29000, 18), user0.address, priceUpdateData)
 
     await usdg.connect(user0).approve(router.address, expandDecimals(20000, 18))
 
     expect(await dai.balanceOf(user0.address)).eq(0)
     expect(await usdg.balanceOf(user0.address)).eq(expandDecimals(89730, 18))
-    await expect(router.connect(user0).swap([usdg.address, dai.address, usdg.address], expandDecimals(20000, 18), expandDecimals(20000, 18), user0.address))
+    await expect(router.connect(user0).swap([usdg.address, dai.address, usdg.address], expandDecimals(20000, 18), expandDecimals(20000, 18), user0.address, priceUpdateData))
       .to.be.revertedWith("Router: insufficient amountOut")
 
-    await router.connect(user0).swap([usdg.address, dai.address, usdg.address], expandDecimals(20000, 18), expandDecimals(19000, 18), user0.address)
+    await router.connect(user0).swap([usdg.address, dai.address, usdg.address], expandDecimals(20000, 18), expandDecimals(19000, 18), user0.address, priceUpdateData)
     expect(await dai.balanceOf(user0.address)).eq(0)
     expect(await usdg.balanceOf(user0.address)).eq("89610180000000000000000") // 89610.18
 
     await usdg.connect(user0).approve(router.address, expandDecimals(40000, 18))
-    await expect(router.connect(user0).swap([usdg.address, dai.address, btc.address], expandDecimals(30000, 18), expandDecimals(39000, 18), user0.address))
+    await expect(router.connect(user0).swap([usdg.address, dai.address, btc.address], expandDecimals(30000, 18), expandDecimals(39000, 18), user0.address, priceUpdateData))
       .to.be.reverted //With("Vault: poolAmount exceeded") // this reverts as some DAI has been transferred from the pool to the fee reserve
 
     expect(await vault.poolAmounts(dai.address)).eq("29790180000000000000000") // 29790.18
     expect(await vault.feeReserves(dai.address)).eq("209820000000000000000") // 209.82
 
-    await expect(router.connect(user0).swap([usdg.address, dai.address, btc.address], expandDecimals(20000, 18), "34000000", user0.address))
+    await expect(router.connect(user0).swap([usdg.address, dai.address, btc.address], expandDecimals(20000, 18), "34000000", user0.address, priceUpdateData))
       .to.be.revertedWith("Router: insufficient amountOut")
 
-    const tx = await router.connect(user0).swap([usdg.address, dai.address, btc.address], expandDecimals(20000, 18), "33000000", user0.address)
+    const tx = await router.connect(user0).swap([usdg.address, dai.address, btc.address], expandDecimals(20000, 18), "33000000", user0.address, priceUpdateData)
     await reportGasUsed(provider, tx, "swap gas used")
     expect(await usdg.balanceOf(user0.address)).eq("69610180000000000000000") // 69610.18
     expect(await btc.balanceOf(user0.address)).eq("33133633") // 0.33133633 BTC
   })
 
-  it("swap, increasePosition", async () => {
-    await bnbPriceFeed.setLatestAnswer(toChainlinkPrice(600))
-    await busdPriceFeed.setLatestAnswer(toChainlinkPrice(1))
-
-    await vault.setTokenConfig(...getBnbConfig(bnb, bnbPriceFeed))
-
-    const bnbBusd = await deployContract("PancakePair", [])
-    await bnbBusd.setReserves(expandDecimals(1000, 18), expandDecimals(300 * 1000, 18))
-
-    const ethBnb = await deployContract("PancakePair", [])
-    await ethBnb.setReserves(expandDecimals(800, 18), expandDecimals(100, 18))
-
-    const btcBnb = await deployContract("PancakePair", [])
-    await btcBnb.setReserves(expandDecimals(10, 18), expandDecimals(2000, 18))
-
-    await vaultPriceFeed.setTokens(btc.address, eth.address, bnb.address)
-    await vaultPriceFeed.setPairs(bnbBusd.address, ethBnb.address, btcBnb.address)
-
-    await btc.mint(user0.address, expandDecimals(1, 8))
-    await btc.connect(user0).approve(router.address, expandDecimals(1, 8))
-    await router.connect(user0).swap([btc.address, usdg.address], expandDecimals(1, 8), expandDecimals(59000, 18), user0.address)
-
-    await dai.mint(user0.address, expandDecimals(200, 18))
-    await dai.connect(user0).approve(router.address, expandDecimals(200, 18))
-
-    await expect(router.connect(user0).increasePosition([dai.address, btc.address], btc.address, expandDecimals(200, 18), "333333", toUsd(1200), true, toNormalizedPrice(60000)))
-      .to.be.revertedWith("Router: insufficient amountOut")
-
-    await expect(router.connect(user0).increasePosition([dai.address, btc.address], btc.address, expandDecimals(200, 18), "332333", toUsd(1200), true, toNormalizedPrice(60000 - 1)))
-      .to.be.revertedWith("Router: mark price higher than limit")
-
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(60000))
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(60000))
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(60000))
-
-    await vaultPriceFeed.setPriceSampleSpace(2)
-
-    const tx = await router.connect(user0).increasePosition([dai.address, btc.address], btc.address, expandDecimals(200, 18), "332333", toUsd(1200), true, toNormalizedPrice(60000))
-    await reportGasUsed(provider, tx, "increasePosition gas used")
-  })
-
   it("decreasePositionAndSwap", async () => {
     await btc.mint(user0.address, expandDecimals(1, 8))
     await btc.connect(user0).approve(router.address, expandDecimals(1, 8))
-    await router.connect(user0).swap([btc.address, usdg.address], expandDecimals(1, 8), expandDecimals(59000, 18), user0.address)
+    await router.connect(user0).swap([btc.address, usdg.address], expandDecimals(1, 8), expandDecimals(59000, 18), user0.address, priceUpdateData)
 
     await dai.mint(user0.address, expandDecimals(30000, 18))
     await dai.connect(user0).approve(router.address, expandDecimals(30000, 18))
-    await router.connect(user0).swap([dai.address, usdg.address], expandDecimals(30000, 18), expandDecimals(29000, 18), user0.address)
+    await router.connect(user0).swap([dai.address, usdg.address], expandDecimals(30000, 18), expandDecimals(29000, 18), user0.address, priceUpdateData)
 
     await dai.mint(user0.address, expandDecimals(200, 18))
     await dai.connect(user0).approve(router.address, expandDecimals(200, 18))
-    await router.connect(user0).increasePosition([dai.address, btc.address], btc.address, expandDecimals(200, 18), "332333", toUsd(1200), true, toNormalizedPrice(60000))
+    await router.connect(user0).increasePosition([dai.address, btc.address], btc.address, expandDecimals(200, 18), "332333", toUsd(1200), true, toNormalizedPrice(60000), priceUpdateData)
 
-    await expect(router.connect(user0).decreasePositionAndSwap([btc.address, dai.address], btc.address, 0, toUsd(1200), true, user1.address, toNormalizedPrice(60000), expandDecimals(197, 18)))
+    await expect(router.connect(user0).decreasePositionAndSwap([btc.address, dai.address], btc.address, 0, toUsd(1200), true, user1.address, toNormalizedPrice(60000), expandDecimals(197, 18),priceUpdateData))
       .to.be.revertedWith("Router: insufficient amountOut")
 
     expect(await dai.balanceOf(user1.address)).eq(0)
     expect(await dai.balanceOf(router.address)).eq(0)
 
-    await router.connect(user0).decreasePositionAndSwap([btc.address, dai.address], btc.address, 0, toUsd(1200), true, user1.address, toNormalizedPrice(60000), expandDecimals(196, 18))
+    await router.connect(user0).decreasePositionAndSwap([btc.address, dai.address], btc.address, 0, toUsd(1200), true, user1.address, toNormalizedPrice(60000), expandDecimals(196, 18),priceUpdateData)
 
     expect(await dai.balanceOf(user1.address)).eq("196408800600000000000") // 196.4088006
     expect(await dai.balanceOf(router.address)).eq(0)
@@ -342,26 +298,26 @@ vault = await deployVault()
   it("decreasePositionAndSwapETH", async () => {
     await btc.mint(user0.address, expandDecimals(1, 8))
     await btc.connect(user0).approve(router.address, expandDecimals(1, 8))
-    await router.connect(user0).swap([btc.address, usdg.address], expandDecimals(1, 8), expandDecimals(59000, 18), user0.address)
+    await router.connect(user0).swap([btc.address, usdg.address], expandDecimals(1, 8), expandDecimals(59000, 18), user0.address, priceUpdateData)
 
     await dai.mint(user0.address, expandDecimals(30000, 18))
     await dai.connect(user0).approve(router.address, expandDecimals(30000, 18))
-    await router.connect(user0).swap([dai.address, usdg.address], expandDecimals(30000, 18), expandDecimals(29000, 18), user0.address)
+    await router.connect(user0).swap([dai.address, usdg.address], expandDecimals(30000, 18), expandDecimals(29000, 18), user0.address, priceUpdateData)
 
     await bnb.mint(user0.address, expandDecimals(10, 18))
     await bnb.connect(user0).approve(router.address, expandDecimals(10, 18))
-    await router.connect(user0).swap([bnb.address, usdg.address], expandDecimals(10, 18), expandDecimals(2900, 18), user0.address)
+    await router.connect(user0).swap([bnb.address, usdg.address], expandDecimals(10, 18), expandDecimals(2900, 18), user0.address, priceUpdateData)
 
     await dai.mint(user0.address, expandDecimals(200, 18))
     await dai.connect(user0).approve(router.address, expandDecimals(200, 18))
-    await router.connect(user0).increasePosition([dai.address, btc.address], btc.address, expandDecimals(200, 18), "332333", toUsd(1200), true, toNormalizedPrice(60000))
+    await router.connect(user0).increasePosition([dai.address, btc.address], btc.address, expandDecimals(200, 18), "332333", toUsd(1200), true, toNormalizedPrice(60000), priceUpdateData)
 
     const wallet0 = newWallet()
 
     expect(await provider.getBalance(wallet0.address)).eq(0)
     expect(await provider.getBalance(router.address)).eq(0)
 
-    await router.connect(user0).decreasePositionAndSwapETH([btc.address, bnb.address], btc.address, 0, toUsd(1200), true, wallet0.address, toNormalizedPrice(60000), "0")
+    await router.connect(user0).decreasePositionAndSwapETH([btc.address, bnb.address], btc.address, 0, toUsd(1200), true, wallet0.address, toNormalizedPrice(60000), "0", priceUpdateData)
 
     expect(await provider.getBalance(wallet0.address)).eq("654696002000000000") // 0.654696002
     expect(await provider.getBalance(router.address)).eq(0)

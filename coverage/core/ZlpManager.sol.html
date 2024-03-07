@@ -1,0 +1,854 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <title>Code coverage report for core\ZlpManager.sol</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="../prettify.css" />
+    <link rel="stylesheet" href="../base.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style type='text/css'>
+        .coverage-summary .sorter {
+            background-image: url(../sort-arrow-sprite.png);
+        }
+    </style>
+</head>
+<body>
+<div class='wrapper'>
+  <div class='pad1'>
+    <h1>
+      <a href="../index.html">all files</a> / <a href="index.html">core/</a> ZlpManager.sol
+    </h1>
+    <div class='clearfix'>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">89.74% </span>
+        <span class="quiet">Statements</span>
+        <span class='fraction'>70/78</span>
+      </div>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">78.57% </span>
+        <span class="quiet">Branches</span>
+        <span class='fraction'>55/70</span>
+      </div>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">85% </span>
+        <span class="quiet">Functions</span>
+        <span class='fraction'>17/20</span>
+      </div>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">89.9% </span>
+        <span class="quiet">Lines</span>
+        <span class='fraction'>89/99</span>
+      </div>
+    </div>
+  </div>
+  <div class='status-line high'></div>
+<pre><table class="coverage">
+<tr><td class="line-count quiet">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65
+66
+67
+68
+69
+70
+71
+72
+73
+74
+75
+76
+77
+78
+79
+80
+81
+82
+83
+84
+85
+86
+87
+88
+89
+90
+91
+92
+93
+94
+95
+96
+97
+98
+99
+100
+101
+102
+103
+104
+105
+106
+107
+108
+109
+110
+111
+112
+113
+114
+115
+116
+117
+118
+119
+120
+121
+122
+123
+124
+125
+126
+127
+128
+129
+130
+131
+132
+133
+134
+135
+136
+137
+138
+139
+140
+141
+142
+143
+144
+145
+146
+147
+148
+149
+150
+151
+152
+153
+154
+155
+156
+157
+158
+159
+160
+161
+162
+163
+164
+165
+166
+167
+168
+169
+170
+171
+172
+173
+174
+175
+176
+177
+178
+179
+180
+181
+182
+183
+184
+185
+186
+187
+188
+189
+190
+191
+192
+193
+194
+195
+196
+197
+198
+199
+200
+201
+202
+203
+204
+205
+206
+207
+208
+209
+210
+211
+212
+213
+214
+215
+216
+217
+218
+219
+220
+221
+222
+223
+224
+225
+226
+227
+228
+229
+230
+231
+232
+233
+234
+235
+236
+237
+238
+239
+240
+241
+242
+243
+244
+245
+246
+247
+248
+249
+250
+251
+252
+253
+254
+255
+256
+257
+258
+259
+260
+261
+262
+263
+264</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">444×</span>
+<span class="cline-any cline-yes">444×</span>
+<span class="cline-any cline-yes">444×</span>
+<span class="cline-any cline-yes">444×</span>
+<span class="cline-any cline-yes">444×</span>
+<span class="cline-any cline-yes">444×</span>
+<span class="cline-any cline-yes">444×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">15×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">48×</span>
+<span class="cline-any cline-yes">48×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">19×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2×</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">7×</span>
+<span class="cline-any cline-yes">7×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">13×</span>
+<span class="cline-any cline-yes">12×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">6×</span>
+<span class="cline-any cline-yes">6×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">8×</span>
+<span class="cline-any cline-yes">7×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">232×</span>
+<span class="cline-any cline-yes">232×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">278×</span>
+<span class="cline-any cline-yes">278×</span>
+<span class="cline-any cline-yes">278×</span>
+<span class="cline-any cline-yes">278×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">278×</span>
+<span class="cline-any cline-yes">651×</span>
+<span class="cline-any cline-yes">651×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">651×</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">651×</span>
+<span class="cline-any cline-yes">651×</span>
+<span class="cline-any cline-yes">651×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">651×</span>
+<span class="cline-any cline-yes">231×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">420×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">420×</span>
+<span class="cline-any cline-yes">103×</span>
+<span class="cline-any cline-yes">103×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">67×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">36×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">420×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">420×</span>
+<span class="cline-any cline-yes">420×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">278×</span>
+<span class="cline-any cline-yes">278×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">103×</span>
+<span class="cline-any cline-yes">103×</span>
+<span class="cline-any cline-yes">103×</span>
+<span class="cline-any cline-yes">103×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">103×</span>
+<span class="cline-any cline-yes">103×</span>
+<span class="cline-any cline-yes">69×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">34×</span>
+<span class="cline-any cline-yes">34×</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">31×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2×</span>
+<span class="cline-any cline-yes">2×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">19×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">19×</span>
+<span class="cline-any cline-yes">19×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">19×</span>
+<span class="cline-any cline-yes">19×</span>
+<span class="cline-any cline-yes">18×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">14×</span>
+<span class="cline-any cline-yes">14×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">12×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">12×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">12×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">12×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">13×</span>
+<span class="cline-any cline-yes">13×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">9×</span>
+<span class="cline-any cline-yes">9×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">9×</span>
+<span class="cline-any cline-yes">9×</span>
+<span class="cline-any cline-yes">9×</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">9×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">9×</span>
+<span class="cline-any cline-yes">9×</span>
+<span class="cline-any cline-yes">9×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">7×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">7×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">21×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// SPDX-License-Identifier: MIT
+&nbsp;
+import "../libraries/math/SafeMath.sol";
+import "../libraries/token/IERC20.sol";
+import "../libraries/token/SafeERC20.sol";
+import "../libraries/utils/ReentrancyGuard.sol";
+&nbsp;
+import "./interfaces/IVault.sol";
+import "./interfaces/IZlpManager.sol";
+import "./interfaces/IShortsTracker.sol";
+import "../tokens/interfaces/IUSDG.sol";
+import "../tokens/interfaces/IMintable.sol";
+import "../oracle/interfaces/IBlockInfo.sol";
+import "../access/Governable.sol";
+&nbsp;
+pragma solidity 0.6.12;
+&nbsp;
+contract ZlpManager is ReentrancyGuard, Governable, IZlpManager {
+    using SafeMath for uint256;
+    using SafeERC20 for IERC20;
+&nbsp;
+    uint256 public constant PRICE_PRECISION = 10 ** 30;
+    uint256 public constant USDG_DECIMALS = 18;
+    uint256 public constant ZLP_PRECISION = 10 ** 18;
+    uint256 public constant MAX_COOLDOWN_DURATION = 48 hours;
+    uint256 public constant BASIS_POINTS_DIVISOR = 10000;
+&nbsp;
+    IVault public override vault;
+    IShortsTracker public shortsTracker;
+    address public override usdg;
+    address public override zlp;
+&nbsp;
+    uint256 public override cooldownDuration;
+    mapping (address =&gt; uint256) public override lastAddedAt;
+&nbsp;
+    uint256 public override aumAddition;
+    uint256 public override aumDeduction;
+&nbsp;
+    bool public inPrivateMode;
+    uint256 public shortsTrackerAveragePriceWeight;
+    mapping (address =&gt; bool) public isHandler;
+    IBlockInfo public blockInfo;
+&nbsp;
+    event AddLiquidity(
+        address account,
+        address token,
+        uint256 amount,
+        uint256 aumInUsdg,
+        uint256 zlpSupply,
+        uint256 usdgAmount,
+        uint256 mintAmount
+    );
+&nbsp;
+    event RemoveLiquidity(
+        address account,
+        address token,
+        uint256 zlpAmount,
+        uint256 aumInUsdg,
+        uint256 zlpSupply,
+        uint256 usdgAmount,
+        uint256 amountOut
+    );
+&nbsp;
+    constructor(address _vault, address _usdg, address _zlp, address _shortsTracker, uint256 _cooldownDuration, IBlockInfo _blockInfo) public {
+        gov = msg.sender;
+        vault = IVault(_vault);
+        usdg = _usdg;
+        zlp = _zlp;
+        shortsTracker = IShortsTracker(_shortsTracker);
+        cooldownDuration = _cooldownDuration;
+        blockInfo = _blockInfo;
+    }
+&nbsp;
+    function setInPrivateMode(bool _inPrivateMode) external <span class="missing-if-branch" title="else path not taken" >E</span>onlyGov {
+        inPrivateMode = _inPrivateMode;
+    }
+&nbsp;
+<span class="fstat-no" title="function not covered" >    function setShortsTracker(IShortsTracker _shortsTracker) external <span class="missing-if-branch" title="if path not taken" >I</span>onlyGov {</span>
+        shortsTracker = _shortsTracker;
+    }
+&nbsp;
+    function setShortsTrackerAveragePriceWeight(uint256 _shortsTrackerAveragePriceWeight) external override onlyGov {
+        <span class="missing-if-branch" title="else path not taken" >E</span>require(shortsTrackerAveragePriceWeight &lt;= BASIS_POINTS_DIVISOR, "ZlpManager: invalid weight");
+        shortsTrackerAveragePriceWeight = _shortsTrackerAveragePriceWeight;
+    }
+&nbsp;
+    function setHandler(address _handler, bool _isActive) external onlyGov {
+        isHandler[_handler] = _isActive;
+    }
+&nbsp;
+    function setCooldownDuration(uint256 _cooldownDuration) external override onlyGov {
+        require(_cooldownDuration &lt;= MAX_COOLDOWN_DURATION, "ZlpManager: invalid _cooldownDuration");
+        cooldownDuration = _cooldownDuration;
+    }
+&nbsp;
+    function setAumAdjustment(uint256 _aumAddition, uint256 _aumDeduction) external onlyGov {
+        aumAddition = _aumAddition;
+        aumDeduction = _aumDeduction;
+    }
+&nbsp;
+    function addLiquidity(address _token, uint256 _amount, uint256 _minUsdg, uint256 _minZlp) external override <span class="missing-if-branch" title="else path not taken" >E</span>nonReentrant returns (uint256) {
+        <span class="missing-if-branch" title="if path not taken" >I</span>if (inPrivateMode) { <span class="cstat-no" title="statement not covered" >revert("ZlpManager: action not enabled")</span>; }
+        return _addLiquidity(msg.sender, msg.sender, _token, _amount, _minUsdg, _minZlp);
+    }
+&nbsp;
+    function addLiquidityForAccount(address _fundingAccount, address _account, address _token, uint256 _amount, uint256 _minUsdg, uint256 _minZlp) external override <span class="missing-if-branch" title="else path not taken" >E</span>nonReentrant returns (uint256) {
+        _validateHandler();
+        return _addLiquidity(_fundingAccount, _account, _token, _amount, _minUsdg, _minZlp);
+    }
+&nbsp;
+    function removeLiquidity(address _tokenOut, uint256 _zlpAmount, uint256 _minOut, address _receiver) external override <span class="missing-if-branch" title="else path not taken" >E</span>nonReentrant returns (uint256) {
+        <span class="missing-if-branch" title="if path not taken" >I</span>if (inPrivateMode) { <span class="cstat-no" title="statement not covered" >revert("ZlpManager: action not enabled")</span>; }
+        return _removeLiquidity(msg.sender, _tokenOut, _zlpAmount, _minOut, _receiver);
+    }
+&nbsp;
+    function removeLiquidityForAccount(address _account, address _tokenOut, uint256 _zlpAmount, uint256 _minOut, address _receiver) external override <span class="missing-if-branch" title="else path not taken" >E</span>nonReentrant returns (uint256) {
+        _validateHandler();
+        return _removeLiquidity(_account, _tokenOut, _zlpAmount, _minOut, _receiver);
+    }
+&nbsp;
+<span class="fstat-no" title="function not covered" >    function getPrice(bool _maximise) external view returns (uint256) {</span>
+<span class="cstat-no" title="statement not covered" >        uint256 aum = getAum(_maximise);</span>
+<span class="cstat-no" title="statement not covered" >        uint256 supply = IERC20(zlp).totalSupply();</span>
+<span class="cstat-no" title="statement not covered" >        return aum.mul(ZLP_PRECISION).div(supply);</span>
+    }
+&nbsp;
+<span class="fstat-no" title="function not covered" >    function getAums() public view returns (uint256[] memory) {</span>
+<span class="cstat-no" title="statement not covered" >        uint256[] memory amounts = new uint256[](2);</span>
+        amounts[0] = getAum(true);
+        amounts[1] = getAum(false);
+<span class="cstat-no" title="statement not covered" >        return amounts;</span>
+    }
+&nbsp;
+    function getAumInUsdg(bool maximise) public override view returns (uint256) {
+        uint256 aum = getAum(maximise);
+        return aum.mul(10 ** USDG_DECIMALS).div(PRICE_PRECISION);
+    }
+&nbsp;
+    function getAum(bool maximise) public view returns (uint256) {
+        uint256 length = vault.allWhitelistedTokensLength();
+        uint256 aum = aumAddition;
+        uint256 shortProfits = 0;
+        IVault _vault = vault;
+&nbsp;
+        for (uint256 i = 0; i &lt; length; i++) {
+            address token = vault.allWhitelistedTokens(i);
+            bool isWhitelisted = vault.whitelistedTokens(token);
+&nbsp;
+            <span class="missing-if-branch" title="if path not taken" >I</span>if (!isWhitelisted) {
+                continue;
+            }
+&nbsp;
+            uint256 price = maximise ? _vault.getMaxPrice(token) : _vault.getMinPrice(token);
+            uint256 poolAmount = _vault.poolAmounts(token);
+            uint256 decimals = _vault.tokenDecimals(token);
+&nbsp;
+            if (_vault.stableTokens(token)) {
+                aum = aum.add(poolAmount.mul(price).div(10 ** decimals));
+            } else {
+                // add global short profit / loss
+                uint256 size = _vault.globalShortSizes(token);
+&nbsp;
+                if (size &gt; 0) {
+                    (uint256 delta, bool hasProfit) = getGlobalShortDelta(token, price, size);
+                    if (!hasProfit) {
+                        // add losses from shorts
+                        aum = aum.add(delta);
+                    } else {
+                        shortProfits = shortProfits.add(delta);
+                    }
+                }
+&nbsp;
+                aum = aum.add(_vault.guaranteedUsd(token));
+&nbsp;
+                uint256 reservedAmount = _vault.reservedAmounts(token);
+                aum = aum.add(poolAmount.sub(reservedAmount).mul(price).div(10 ** decimals));
+            }
+        }
+&nbsp;
+        aum = shortProfits &gt; aum ? <span class="missing-if-branch" title="if path not taken" >I</span>0 : aum.sub(shortProfits);
+        return aumDeduction &gt; aum ? <span class="missing-if-branch" title="if path not taken" >I</span>0 : aum.sub(aumDeduction);
+    }
+&nbsp;
+    function getGlobalShortDelta(address _token, uint256 _price, uint256 _size) override public view returns (uint256, bool) {
+        uint256 averagePrice = getGlobalShortAveragePrice(_token);
+        uint256 priceDelta = averagePrice &gt; _price ? averagePrice.sub(_price) : _price.sub(averagePrice);
+        uint256 delta = _size.mul(priceDelta).div(averagePrice);
+        return (delta, averagePrice &gt; _price);
+    }
+&nbsp;
+    function getGlobalShortAveragePrice(address _token) public view  returns (uint256) {
+        IShortsTracker _shortsTracker = shortsTracker;
+        if (address(_shortsTracker) == address(0) || !_shortsTracker.isGlobalShortDataReady()) {
+            return vault.globalShortAveragePrices(_token);
+        }
+&nbsp;
+        uint256 _shortsTrackerAveragePriceWeight = shortsTrackerAveragePriceWeight;
+        if (_shortsTrackerAveragePriceWeight == 0) {
+            return vault.globalShortAveragePrices(_token);
+        } else if (_shortsTrackerAveragePriceWeight == BASIS_POINTS_DIVISOR) {
+            return _shortsTracker.globalShortAveragePrices(_token);
+        }
+&nbsp;
+        uint256 vaultAveragePrice = vault.globalShortAveragePrices(_token);
+        uint256 shortsTrackerAveragePrice = _shortsTracker.globalShortAveragePrices(_token);
+&nbsp;
+        return vaultAveragePrice.mul(BASIS_POINTS_DIVISOR.sub(_shortsTrackerAveragePriceWeight))
+            .add(shortsTrackerAveragePrice.mul(_shortsTrackerAveragePriceWeight))
+            .div(BASIS_POINTS_DIVISOR);
+    }
+&nbsp;
+    function _addLiquidity(address _fundingAccount, address _account, address _token, uint256 _amount, uint256 _minUsdg, uint256 _minZlp) private returns (uint256) {
+        <span class="missing-if-branch" title="else path not taken" >E</span>require(_amount &gt; 0, "ZlpManager: invalid _amount");
+&nbsp;
+        // calculate aum before buyUSDG
+        uint256 aumInUsdg = getAumInUsdg(true);
+        uint256 zlpSupply = IERC20(zlp).totalSupply();
+&nbsp;
+        IERC20(_token).safeTransferFrom(_fundingAccount, address(vault), _amount);
+        uint256 usdgAmount = vault.buyUSDG(_token, address(this));
+        require(usdgAmount &gt;= _minUsdg, "ZlpManager: insufficient USDG output");
+&nbsp;
+        uint256 mintAmount = aumInUsdg == 0 ? usdgAmount : usdgAmount.mul(zlpSupply).div(aumInUsdg);
+        require(mintAmount &gt;= _minZlp, "ZlpManager: insufficient ZLP output");
+&nbsp;
+        IMintable(zlp).mint(_account, mintAmount);
+&nbsp;
+        lastAddedAt[_account] = blockInfo.getBlockTimestamp();
+&nbsp;
+        emit AddLiquidity(_account, _token, _amount, aumInUsdg, zlpSupply, usdgAmount, mintAmount);
+&nbsp;
+        return mintAmount;
+    }
+&nbsp;
+    function _removeLiquidity(address _account, address _tokenOut, uint256 _zlpAmount, uint256 _minOut, address _receiver) private returns (uint256) {
+        <span class="missing-if-branch" title="else path not taken" >E</span>require(_zlpAmount &gt; 0, "ZlpManager: invalid _zlpAmount");
+        require(lastAddedAt[_account].add(cooldownDuration) &lt;= blockInfo.getBlockTimestamp(), "ZlpManager: cooldown duration not yet passed");
+&nbsp;
+        // calculate aum before sellUSDG
+        uint256 aumInUsdg = getAumInUsdg(false);
+        uint256 zlpSupply = IERC20(zlp).totalSupply();
+&nbsp;
+        uint256 usdgAmount = _zlpAmount.mul(aumInUsdg).div(zlpSupply);
+        uint256 usdgBalance = IERC20(usdg).balanceOf(address(this));
+        <span class="missing-if-branch" title="if path not taken" >I</span>if (usdgAmount &gt; usdgBalance) {
+<span class="cstat-no" title="statement not covered" >            IUSDG(usdg).mint(address(this), usdgAmount.sub(usdgBalance))</span>;
+        }
+&nbsp;
+        IMintable(zlp).burn(_account, _zlpAmount);
+&nbsp;
+        IERC20(usdg).transfer(address(vault), usdgAmount);
+        uint256 amountOut = vault.sellUSDG(_tokenOut, _receiver);
+        require(amountOut &gt;= _minOut, "ZlpManager: insufficient output");
+&nbsp;
+        emit RemoveLiquidity(_account, _tokenOut, _zlpAmount, aumInUsdg, zlpSupply, usdgAmount, amountOut);
+&nbsp;
+        return amountOut;
+    }
+&nbsp;
+    function _validateHandler() private view {
+        require(isHandler[msg.sender], "ZlpManager: forbidden");
+    }
+}
+&nbsp;</pre></td></tr>
+</table></pre>
+<div class='push'></div><!-- for sticky footer -->
+</div><!-- /wrapper -->
+<div class='footer quiet pad2 space-top1 center small'>
+  Code coverage
+  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Thu Mar 07 2024 06:38:22 GMT+0200 (Eastern European Standard Time)
+</div>
+</div>
+<script src="../prettify.js"></script>
+<script>
+window.onload = function () {
+        if (typeof prettyPrint === 'function') {
+            prettyPrint();
+        }
+};
+</script>
+<script src="../sorter.js"></script>
+</body>
+</html>

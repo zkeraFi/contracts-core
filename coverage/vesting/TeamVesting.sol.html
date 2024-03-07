@@ -1,0 +1,452 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <title>Code coverage report for vesting\TeamVesting.sol</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="../prettify.css" />
+    <link rel="stylesheet" href="../base.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style type='text/css'>
+        .coverage-summary .sorter {
+            background-image: url(../sort-arrow-sprite.png);
+        }
+    </style>
+</head>
+<body>
+<div class='wrapper'>
+  <div class='pad1'>
+    <h1>
+      <a href="../index.html">all files</a> / <a href="index.html">vesting/</a> TeamVesting.sol
+    </h1>
+    <div class='clearfix'>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">0% </span>
+        <span class="quiet">Statements</span>
+        <span class='fraction'>0/30</span>
+      </div>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">0% </span>
+        <span class="quiet">Branches</span>
+        <span class='fraction'>0/30</span>
+      </div>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">0% </span>
+        <span class="quiet">Functions</span>
+        <span class='fraction'>0/12</span>
+      </div>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">0% </span>
+        <span class="quiet">Lines</span>
+        <span class='fraction'>0/44</span>
+      </div>
+    </div>
+  </div>
+  <div class='status-line low'></div>
+<pre><table class="coverage">
+<tr><td class="line-count quiet">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65
+66
+67
+68
+69
+70
+71
+72
+73
+74
+75
+76
+77
+78
+79
+80
+81
+82
+83
+84
+85
+86
+87
+88
+89
+90
+91
+92
+93
+94
+95
+96
+97
+98
+99
+100
+101
+102
+103
+104
+105
+106
+107
+108
+109
+110
+111
+112
+113
+114
+115
+116
+117
+118
+119
+120
+121
+122
+123
+124
+125
+126
+127
+128
+129
+130</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// SPDX-License-Identifier: MIT
+pragma solidity 0.8.18;
+&nbsp;
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "./../oracle/interfaces/IBlockInfo_0_8_18.sol";
+&nbsp;
+contract TeamVesting is Ownable {
+    uint256 public vestingWeeks;
+    uint256 public vestingStart;
+    IERC20 public zke;
+    IBlockInfo_0_8_18 blockInfo;
+&nbsp;
+    uint256 public totalZkeAllocated;
+    uint256 public totalZkeClaimed;
+    uint256 private constant ZKE_DECIMALS = 18;
+&nbsp;
+    struct Participant {
+        uint256 zkeAllocated;
+        uint256 zkeClaimed;
+        uint256 lastClaimed;
+    }
+&nbsp;
+    mapping(address =&gt; Participant) private _participants;
+    mapping(address =&gt; bool) private _pausedClaiming;
+&nbsp;
+    event ZkeAllocated(address indexed team, uint256 amount);
+    event ZkeClaimed(address indexed team, uint256 amount);
+&nbsp;
+<span class="fstat-no" title="function not covered" >    constructor (IERC20 _zke, uint256 _vestingWeeks, uint256 _vestingStart, IBlockInfo_0_8_18 _blockInfo) {</span>
+        zke = _zke;
+        vestingWeeks = _vestingWeeks;
+        vestingStart= _vestingStart;
+        blockInfo = _blockInfo;
+    }
+&nbsp;
+&nbsp;
+<span class="fstat-no" title="function not covered" >    function pausedClaiming(address account) public view returns(bool) {</span>
+<span class="cstat-no" title="statement not covered" >        return _pausedClaiming[account];</span>
+    }
+&nbsp;
+<span class="fstat-no" title="function not covered" >    function participants(address account) public view returns (uint256,uint256,uint256) {</span>
+<span class="cstat-no" title="statement not covered" >        Participant memory participant = _participants[account];</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >        return (participant.zkeAllocated, participant.zkeClaimed, participant.lastClaimed);</span>
+    }
+&nbsp;
+<span class="fstat-no" title="function not covered" >    function setVestingStart(uint256 _vestingStart) onlyOwner external {</span>
+        vestingStart = _vestingStart;
+    }
+&nbsp;
+<span class="fstat-no" title="function not covered" >    function setVestingWeeks(uint256 _vestingWeeks) onlyOwner external {</span>
+        vestingWeeks = _vestingWeeks;
+    }
+&nbsp;
+<span class="fstat-no" title="function not covered" >    function allocateTokens(address team, uint256 tokenAmount) onlyOwner external {</span>
+<span class="cstat-no" title="statement not covered" >        Participant storage participant = _participants[team];</span>
+<span class="cstat-no" title="statement not covered" >        require(participant.zkeClaimed == 0, "Cannot allocate after first claim")</span>;
+        
+        totalZkeAllocated -= participant.zkeAllocated;
+        participant.zkeAllocated = tokenAmount;
+        totalZkeAllocated += tokenAmount;
+&nbsp;
+<span class="cstat-no" title="statement not covered" >        emit ZkeAllocated(team, tokenAmount);</span>
+    }
+&nbsp;
+<span class="fstat-no" title="function not covered" >    function claimTokens() external {</span>
+<span class="cstat-no" title="statement not covered" >        require(!pausedClaiming(msg.sender), "Claiming is paused for this team")</span>;
+<span class="cstat-no" title="statement not covered" >        uint256 blockTimestamp = blockInfo.getBlockTimestamp();</span>
+<span class="cstat-no" title="statement not covered" >        require(blockTimestamp &gt;= vestingStart, "Vesting has not started yet")</span>;
+&nbsp;
+<span class="cstat-no" title="statement not covered" >        Participant storage participant = _participants[msg.sender];</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >        uint256 tokensAvailable = getAvailableTokens(msg.sender);</span>
+<span class="cstat-no" title="statement not covered" >        require(tokensAvailable &gt; 0, "No tokens available to claim")</span>;
+&nbsp;
+        participant.zkeClaimed += tokensAvailable;
+        totalZkeClaimed += tokensAvailable;
+        participant.lastClaimed = blockTimestamp;
+<span class="cstat-no" title="statement not covered" >        zke.transfer(msg.sender, tokensAvailable)</span>;
+&nbsp;
+<span class="cstat-no" title="statement not covered" >        emit ZkeClaimed(msg.sender, tokensAvailable);</span>
+    }
+&nbsp;
+<span class="fstat-no" title="function not covered" >    function getAvailableTokens(address user) public view returns (uint256) {</span>
+<span class="cstat-no" title="statement not covered" >        uint256 blockTimestamp = blockInfo.getBlockTimestamp();</span>
+<span class="cstat-no" title="statement not covered" >        if (blockTimestamp &lt; vestingStart) {</span>
+<span class="cstat-no" title="statement not covered" >            return 0;</span>
+        }
+<span class="cstat-no" title="statement not covered" >        (uint256 zkeAllocated, uint256 zkeClaimed, uint256 lastClaimed) = participants(user);</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >        bool firstClaim = lastClaimed == 0;</span>
+<span class="cstat-no" title="statement not covered" >        uint256 vestedWeeks = (blockTimestamp - vestingStart ) / (86400 * 7);</span>
+<span class="cstat-no" title="statement not covered" >        uint256 claimedWeeks = firstClaim ? 0 : (lastClaimed - vestingStart) / (86400 * 7);</span>
+<span class="cstat-no" title="statement not covered" >        uint256 weeksPassed = vestedWeeks - claimedWeeks;</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >        if (weeksPassed == 0) {</span>
+<span class="cstat-no" title="statement not covered" >            return 0;</span>
+        }
+&nbsp;
+<span class="cstat-no" title="statement not covered" >        uint256 tokensPerWeek = zkeAllocated / vestingWeeks;</span>
+<span class="cstat-no" title="statement not covered" >        uint256 tokensToClaim = tokensPerWeek * weeksPassed;</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >        return</span>
+            (zkeClaimed + tokensToClaim &gt; zkeAllocated)
+                ? zkeAllocated - zkeClaimed
+                : tokensToClaim;
+    }
+&nbsp;
+<span class="fstat-no" title="function not covered" >    function max(uint256 a, uint256 b) private pure returns (uint256) {</span>
+<span class="cstat-no" title="statement not covered" >        return a &gt; b ? a : b;</span>
+    }
+&nbsp;
+<span class="fstat-no" title="function not covered" >    function withdrawTokens(</span>
+        address _tokenAddress,
+        uint256 _amount
+    ) external onlyOwner {
+<span class="cstat-no" title="statement not covered" >        IERC20 _token = IERC20(_tokenAddress);</span>
+<span class="cstat-no" title="statement not covered" >        _token.transfer(owner(), _amount)</span>;
+    }
+&nbsp;
+<span class="fstat-no" title="function not covered" >    function pauseClaiming(address user) onlyOwner external {</span>
+        _pausedClaiming[user] = true;
+    }
+&nbsp;
+<span class="fstat-no" title="function not covered" >    function unpauseClaiming(address user) onlyOwner external {</span>
+        _pausedClaiming[user] = false;
+    }
+}
+&nbsp;</pre></td></tr>
+</table></pre>
+<div class='push'></div><!-- for sticky footer -->
+</div><!-- /wrapper -->
+<div class='footer quiet pad2 space-top1 center small'>
+  Code coverage
+  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Thu Mar 07 2024 06:38:22 GMT+0200 (Eastern European Standard Time)
+</div>
+</div>
+<script src="../prettify.js"></script>
+<script>
+window.onload = function () {
+        if (typeof prettyPrint === 'function') {
+            prettyPrint();
+        }
+};
+</script>
+<script src="../sorter.js"></script>
+</body>
+</html>

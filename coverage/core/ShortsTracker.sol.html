@@ -1,0 +1,728 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <title>Code coverage report for core\ShortsTracker.sol</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="../prettify.css" />
+    <link rel="stylesheet" href="../base.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style type='text/css'>
+        .coverage-summary .sorter {
+            background-image: url(../sort-arrow-sprite.png);
+        }
+    </style>
+</head>
+<body>
+<div class='wrapper'>
+  <div class='pad1'>
+    <h1>
+      <a href="../index.html">all files</a> / <a href="index.html">core/</a> ShortsTracker.sol
+    </h1>
+    <div class='clearfix'>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">98.04% </span>
+        <span class="quiet">Statements</span>
+        <span class='fraction'>50/51</span>
+      </div>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">81.25% </span>
+        <span class="quiet">Branches</span>
+        <span class='fraction'>39/48</span>
+      </div>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">100% </span>
+        <span class="quiet">Functions</span>
+        <span class='fraction'>12/12</span>
+      </div>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">95.59% </span>
+        <span class="quiet">Lines</span>
+        <span class='fraction'>65/68</span>
+      </div>
+    </div>
+  </div>
+  <div class='status-line high'></div>
+<pre><table class="coverage">
+<tr><td class="line-count quiet">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65
+66
+67
+68
+69
+70
+71
+72
+73
+74
+75
+76
+77
+78
+79
+80
+81
+82
+83
+84
+85
+86
+87
+88
+89
+90
+91
+92
+93
+94
+95
+96
+97
+98
+99
+100
+101
+102
+103
+104
+105
+106
+107
+108
+109
+110
+111
+112
+113
+114
+115
+116
+117
+118
+119
+120
+121
+122
+123
+124
+125
+126
+127
+128
+129
+130
+131
+132
+133
+134
+135
+136
+137
+138
+139
+140
+141
+142
+143
+144
+145
+146
+147
+148
+149
+150
+151
+152
+153
+154
+155
+156
+157
+158
+159
+160
+161
+162
+163
+164
+165
+166
+167
+168
+169
+170
+171
+172
+173
+174
+175
+176
+177
+178
+179
+180
+181
+182
+183
+184
+185
+186
+187
+188
+189
+190
+191
+192
+193
+194
+195
+196
+197
+198
+199
+200
+201
+202
+203
+204
+205
+206
+207
+208
+209
+210
+211
+212
+213
+214
+215
+216
+217
+218
+219
+220
+221
+222</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">164×</span>
+<span class="cline-any cline-yes">164×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">270×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">78×</span>
+<span class="cline-any cline-yes">78×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">80×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">97×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">164×</span>
+<span class="cline-any cline-yes">78×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">86×</span>
+<span class="cline-any cline-yes">6×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">80×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">80×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">80×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">18×</span>
+<span class="cline-any cline-yes">18×</span>
+<span class="cline-any cline-yes">18×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">18×</span>
+<span class="cline-any cline-yes">18×</span>
+<span class="cline-any cline-yes">18×</span>
+<span class="cline-any cline-yes">18×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">18×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4×</span>
+<span class="cline-any cline-yes">4×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">80×</span>
+<span class="cline-any cline-yes">80×</span>
+<span class="cline-any cline-yes">80×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">80×</span>
+<span class="cline-any cline-yes">80×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">80×</span>
+<span class="cline-any cline-yes">80×</span>
+<span class="cline-any cline-yes">80×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">80×</span>
+<span class="cline-any cline-yes">3×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">77×</span>
+<span class="cline-any cline-yes">29×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">48×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">48×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">48×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">80×</span>
+<span class="cline-any cline-yes">52×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">28×</span>
+<span class="cline-any cline-yes">28×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">28×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">28×</span>
+<span class="cline-any cline-yes">28×</span>
+<span class="cline-any cline-yes">28×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">48×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">48×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">48×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">48×</span>
+<span class="cline-any cline-yes">48×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">24×</span>
+<span class="cline-any cline-yes">4×</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">20×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">24×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">24×</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">24×</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">23×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">24×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// SPDX-License-Identifier: MIT
+&nbsp;
+pragma solidity 0.6.12;
+&nbsp;
+import "../libraries/math/SafeMath.sol";
+&nbsp;
+import "../access/Governable.sol";
+import "./interfaces/IShortsTracker.sol";
+import "./interfaces/IVault.sol";
+&nbsp;
+contract ShortsTracker is Governable, IShortsTracker {
+    using SafeMath for uint256;
+&nbsp;
+    event GlobalShortDataUpdated(address indexed token, uint256 globalShortSize, uint256 globalShortAveragePrice);
+&nbsp;
+    uint256 public constant MAX_INT256 = uint256(type(int256).max);
+&nbsp;
+    IVault public vault;
+&nbsp;
+    mapping (address =&gt; bool) public isHandler;
+    mapping (bytes32 =&gt; bytes32) public data;
+&nbsp;
+    mapping (address =&gt; uint256) override public globalShortAveragePrices;
+    bool override public isGlobalShortDataReady;
+&nbsp;
+    modifier onlyHandler() {
+        <span class="missing-if-branch" title="else path not taken" >E</span>require(isHandler[msg.sender], "ShortsTracker: forbidden");
+        _;
+    }
+&nbsp;
+    constructor(address _vault) public {
+        vault = IVault(_vault);
+    }
+&nbsp;
+    function setHandler(address _handler, bool _isActive) external <span class="missing-if-branch" title="else path not taken" >E</span>onlyGov {
+        <span class="missing-if-branch" title="else path not taken" >E</span>require(_handler != address(0), "ShortsTracker: invalid _handler");
+        isHandler[_handler] = _isActive;
+    }
+&nbsp;
+    function _setGlobalShortAveragePrice(address _token, uint256 _averagePrice) internal {
+        globalShortAveragePrices[_token] = _averagePrice;
+    }
+&nbsp;
+    function setIsGlobalShortDataReady(bool value) override external onlyGov {
+        isGlobalShortDataReady = value;
+    }
+&nbsp;
+    function updateGlobalShortData(
+        address _account,
+        address _collateralToken,
+        address _indexToken,
+        bool _isLong,
+        uint256 _sizeDelta,
+        uint256 _markPrice,
+        bool _isIncrease
+    ) override external <span class="missing-if-branch" title="else path not taken" >E</span>onlyHandler {
+        if (_isLong || _sizeDelta == 0) {
+            return;
+        }
+&nbsp;
+        if (!isGlobalShortDataReady) {
+            return;
+        }
+&nbsp;
+        (uint256 globalShortSize, uint256 globalShortAveragePrice) = getNextGlobalShortData(
+            _account,
+            _collateralToken,
+            _indexToken,
+            _markPrice,
+            _sizeDelta,
+            _isIncrease
+        );
+        _setGlobalShortAveragePrice(_indexToken, globalShortAveragePrice);
+&nbsp;
+        emit GlobalShortDataUpdated(_indexToken, globalShortSize, globalShortAveragePrice);
+    }
+&nbsp;
+    function getGlobalShortDelta(address _token) public view returns (bool, uint256) {
+        uint256 size = vault.globalShortSizes(_token);
+        uint256 averagePrice = globalShortAveragePrices[_token];
+        <span class="missing-if-branch" title="if path not taken" >I</span>if (size == 0) { <span class="cstat-no" title="statement not covered" >return (false, 0);</span> }
+&nbsp;
+        uint256 nextPrice = IVault(vault).getMaxPrice(_token);
+        uint256 priceDelta = averagePrice &gt; nextPrice ? averagePrice.sub(nextPrice) : nextPrice.sub(averagePrice);
+        uint256 delta = size.mul(priceDelta).div(averagePrice);
+        bool hasProfit = averagePrice &gt; nextPrice;
+&nbsp;
+        return (hasProfit, delta);
+    }
+&nbsp;
+&nbsp;
+    function setInitData(address[] calldata _tokens, uint256[] calldata _averagePrices) override external onlyGov {
+        <span class="missing-if-branch" title="else path not taken" >E</span>require(!isGlobalShortDataReady, "ShortsTracker: already migrated");
+&nbsp;
+        for (uint256 i = 0; i &lt; _tokens.length; i++) {
+            globalShortAveragePrices[_tokens[i]] = _averagePrices[i];
+        }
+        isGlobalShortDataReady = true;
+    }
+&nbsp;
+    function getNextGlobalShortData(
+        address _account,
+        address _collateralToken,
+        address _indexToken,
+        uint256 _nextPrice,
+        uint256 _sizeDelta,
+        bool _isIncrease
+    ) override public view returns (uint256, uint256) {
+        int256 realisedPnl = getRealisedPnl(_account,_collateralToken, _indexToken, _sizeDelta, _isIncrease);
+        uint256 averagePrice = globalShortAveragePrices[_indexToken];
+        uint256 priceDelta = averagePrice &gt; _nextPrice ? averagePrice.sub(_nextPrice) : _nextPrice.sub(averagePrice);
+&nbsp;
+        uint256 nextSize;
+        uint256 delta;
+        // avoid stack to deep
+        {
+            uint256 size = vault.globalShortSizes(_indexToken);
+            nextSize = _isIncrease ? size.add(_sizeDelta) : size.sub(_sizeDelta);
+&nbsp;
+            if (nextSize == 0) {
+                return (0, 0);
+            }
+&nbsp;
+            if (averagePrice == 0) {
+                return (nextSize, _nextPrice);
+            }
+&nbsp;
+            delta = size.mul(priceDelta).div(averagePrice);
+        }
+&nbsp;
+        uint256 nextAveragePrice = _getNextGlobalAveragePrice(
+            averagePrice,
+            _nextPrice,
+            nextSize,
+            delta,
+            realisedPnl
+        );
+&nbsp;
+        return (nextSize, nextAveragePrice);
+    }
+&nbsp;
+    function getRealisedPnl(
+        address _account,
+        address _collateralToken,
+        address _indexToken,
+        uint256 _sizeDelta,
+        bool _isIncrease
+    ) public view returns (int256) {
+        if (_isIncrease) {
+            return 0;
+        }
+&nbsp;
+        IVault _vault = vault;
+        (uint256 size, /*uint256 collateral*/, uint256 averagePrice, , , , , uint256 lastIncreasedTime) = _vault.getPosition(_account, _collateralToken, _indexToken, false);
+&nbsp;
+        (bool hasProfit, uint256 delta) = _vault.getDelta(_indexToken, size, averagePrice, false, lastIncreasedTime);
+        // get the proportional change in pnl
+        uint256 adjustedDelta = _sizeDelta.mul(delta).div(size);
+        <span class="missing-if-branch" title="else path not taken" >E</span>require(adjustedDelta &lt; MAX_INT256, "ShortsTracker: overflow");
+        return hasProfit ? int256(adjustedDelta) : -int256(adjustedDelta);
+    }
+&nbsp;
+    function _getNextGlobalAveragePrice(
+        uint256 _averagePrice,
+        uint256 _nextPrice,
+        uint256 _nextSize,
+        uint256 _delta,
+        int256 _realisedPnl
+    ) public pure returns (uint256) {
+        (bool hasProfit, uint256 nextDelta) = _getNextDelta(_delta, _averagePrice, _nextPrice, _realisedPnl);
+&nbsp;
+        uint256 nextAveragePrice = _nextPrice
+            .mul(_nextSize)
+            .div(hasProfit ? _nextSize.sub(nextDelta) : _nextSize.add(nextDelta));
+&nbsp;
+        return nextAveragePrice;
+    }
+&nbsp;
+    function _getNextDelta(
+        uint256 _delta,
+        uint256 _averagePrice,
+        uint256 _nextPrice,
+        int256 _realisedPnl
+    ) internal pure returns (bool, uint256) {
+        // global delta 10000, realised pnl 1000 =&gt; new pnl 9000
+        // global delta 10000, realised pnl -1000 =&gt; new pnl 11000
+        // global delta -10000, realised pnl 1000 =&gt; new pnl -11000
+        // global delta -10000, realised pnl -1000 =&gt; new pnl -9000
+        // global delta 10000, realised pnl 11000 =&gt; new pnl -1000 (flips sign)
+        // global delta -10000, realised pnl -11000 =&gt; new pnl 1000 (flips sign)
+&nbsp;
+        bool hasProfit = _averagePrice &gt; _nextPrice;
+        if (hasProfit) {
+            // global shorts pnl is positive
+            if (_realisedPnl &gt; 0) {
+                <span class="missing-if-branch" title="if path not taken" >I</span>if (uint256(_realisedPnl) &gt; _delta) {
+                    _delta = uint256(_realisedPnl).sub(_delta);
+                    hasProfit = false;
+                } else {
+                    _delta = _delta.sub(uint256(_realisedPnl));
+                }
+            } else {
+                _delta = _delta.add(uint256(-_realisedPnl));
+            }
+&nbsp;
+            return (hasProfit, _delta);
+        }
+&nbsp;
+        <span class="missing-if-branch" title="if path not taken" >I</span>if (_realisedPnl &gt; 0) {
+            _delta = _delta.add(uint256(_realisedPnl));
+        } else {
+            if (uint256(-_realisedPnl) &gt; _delta) {
+                _delta = uint256(-_realisedPnl).sub(_delta);
+                hasProfit = true;
+            } else {
+                _delta = _delta.sub(uint256(-_realisedPnl));
+            }
+        }
+        return (hasProfit, _delta);
+    }
+}
+&nbsp;</pre></td></tr>
+</table></pre>
+<div class='push'></div><!-- for sticky footer -->
+</div><!-- /wrapper -->
+<div class='footer quiet pad2 space-top1 center small'>
+  Code coverage
+  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Thu Mar 07 2024 06:38:22 GMT+0200 (Eastern European Standard Time)
+</div>
+</div>
+<script src="../prettify.js"></script>
+<script>
+window.onload = function () {
+        if (typeof prettyPrint === 'function') {
+            prettyPrint();
+        }
+};
+</script>
+<script src="../sorter.js"></script>
+</body>
+</html>

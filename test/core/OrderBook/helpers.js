@@ -1,5 +1,6 @@
 const { expect } = require("chai")
-const { expandDecimals } = require("../../shared/utilities")
+const { expandDecimals } = require("../../shared/utilities");
+const { priceUpdateData } = require("../../shared/pyth");
 
 const PRICE_PRECISION = ethers.BigNumber.from(10).pow(30);
 const BASIS_POINTS_DIVISOR = 10000;
@@ -56,6 +57,7 @@ function defaultCreateIncreaseOrderFactory(orderBook, defaults) {
             getDefault(props, 'triggerAboveThreshold', defaults.triggerAboveThreshold),
             getDefault(props, 'executionFee', defaults.executionFee),
             getDefault(props, 'shouldWrap', defaults.shouldWrap),
+            priceUpdateData,
             {value: getDefault(props, 'value', props.executionFee || defaults.executionFee)}
         );
     }

@@ -272,7 +272,7 @@ async function deployAll(admin, keeper) {
     blockInfoProxy.address
   ])
 
-  const rewardRouter = await deployContract("RewardRouterV3", [])
+  const rewardRouter = await deployContract("RewardRouterV4", [])
   await rewardRouter.initialize(
     eth.address,
     zke.address,
@@ -505,7 +505,6 @@ module.exports = {
   deployVaultPriceFeed,
   deployZlpManager,
   deployFastPriceFeed,
-  deployPriceFeedTimelock,
   deployTimelock,
   deployZkeTimelock,
   deployBonusDistributor,

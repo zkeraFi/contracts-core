@@ -98,9 +98,9 @@ async function validateVaultBalance(expect, vault, token, offset) {
   expect(poolAmount.add(feeReserve).add(offset)).eq(balance)
 }
 
-function getBnbConfig(bnb) {
+function getBnbConfig(eth) {
   return [
-    bnb.address, // _token
+    eth.address, // _token
     18, // _tokenDecimals
     10000, // _tokenWeight
     75, // _minProfitBps,

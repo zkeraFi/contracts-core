@@ -14,14 +14,14 @@ describe("VaultUtils", function () {
   let vaultPriceFeed
   let usdg
   let router
-  let bnb
+  let eth
 
   beforeEach(async () => {
-    bnb = await deployContract("Token", [])
+    eth = await deployContract("Token", [])
 
     vault = await deployVault()
     usdg = await deployContract("USDG", [vault.address])
-    router = await deployContract("Router", [vault.address, usdg.address, bnb.address])
+    router = await deployContract("Router", [vault.address, usdg.address, eth.address,pyth.address])
     vaultPriceFeed = await deployVaultPriceFeed()
 
     const _ = await initVault(vault, router, usdg, vaultPriceFeed)

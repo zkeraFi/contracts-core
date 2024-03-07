@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <title>Code coverage report for peripherals\RewardReader.sol</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="../prettify.css" />
+    <link rel="stylesheet" href="../base.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style type='text/css'>
+        .coverage-summary .sorter {
+            background-image: url(../sort-arrow-sprite.png);
+        }
+    </style>
+</head>
+<body>
+<div class='wrapper'>
+  <div class='pad1'>
+    <h1>
+      <a href="../index.html">all files</a> / <a href="index.html">peripherals/</a> RewardReader.sol
+    </h1>
+    <div class='clearfix'>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">0% </span>
+        <span class="quiet">Statements</span>
+        <span class='fraction'>0/15</span>
+      </div>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">100% </span>
+        <span class="quiet">Branches</span>
+        <span class='fraction'>0/0</span>
+      </div>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">0% </span>
+        <span class="quiet">Functions</span>
+        <span class='fraction'>0/3</span>
+      </div>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">0% </span>
+        <span class="quiet">Lines</span>
+        <span class='fraction'>0/33</span>
+      </div>
+    </div>
+  </div>
+  <div class='status-line low'></div>
+<pre><table class="coverage">
+<tr><td class="line-count quiet">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// SPDX-License-Identifier: MIT
+&nbsp;
+pragma solidity 0.6.12;
+&nbsp;
+import "../libraries/token/IERC20.sol";
+import "../libraries/math/SafeMath.sol";
+&nbsp;
+import "../staking/interfaces/IVester.sol";
+import "../staking/interfaces/IRewardTracker.sol";
+&nbsp;
+contract RewardReader {
+    using SafeMath for uint256;
+&nbsp;
+<span class="fstat-no" title="function not covered" >    function getDepositBalances(address _account, address[] memory _depositTokens, address[] memory _rewardTrackers) public view returns (uint256[] memory) {</span>
+<span class="cstat-no" title="statement not covered" >        uint256[] memory amounts = new uint256[](_rewardTrackers.length);</span>
+<span class="cstat-no" title="statement not covered" >        for (uint256 i = 0; i &lt; _rewardTrackers.length; i++) {</span>
+<span class="cstat-no" title="statement not covered" >            IRewardTracker rewardTracker = IRewardTracker(_rewardTrackers[i]);</span>
+            amounts[i] = rewardTracker.depositBalances(_account, _depositTokens[i]);
+        }
+<span class="cstat-no" title="statement not covered" >        return amounts;</span>
+    }
+&nbsp;
+<span class="fstat-no" title="function not covered" >    function getStakingInfo(address _account, address[] memory _rewardTrackers) public view returns (uint256[] memory) {</span>
+<span class="cstat-no" title="statement not covered" >        uint256 propsLength = 5;</span>
+<span class="cstat-no" title="statement not covered" >        uint256[] memory amounts = new uint256[](_rewardTrackers.length * propsLength);</span>
+<span class="cstat-no" title="statement not covered" >        for (uint256 i = 0; i &lt; _rewardTrackers.length; i++) {</span>
+<span class="cstat-no" title="statement not covered" >            IRewardTracker rewardTracker = IRewardTracker(_rewardTrackers[i]);</span>
+            amounts[i * propsLength] = rewardTracker.claimable(_account);
+            amounts[i * propsLength + 1] = rewardTracker.tokensPerInterval();
+            amounts[i * propsLength + 2] = rewardTracker.averageStakedAmounts(_account);
+            amounts[i * propsLength + 3] = rewardTracker.cumulativeRewards(_account);
+            amounts[i * propsLength + 4] = IERC20(_rewardTrackers[i]).totalSupply();
+        }
+<span class="cstat-no" title="statement not covered" >        return amounts;</span>
+    }
+&nbsp;
+<span class="fstat-no" title="function not covered" >    function getVestingInfoV2(address _account, address[] memory _vesters) public view returns (uint256[] memory) {</span>
+<span class="cstat-no" title="statement not covered" >        uint256 propsLength = 12;</span>
+<span class="cstat-no" title="statement not covered" >        uint256[] memory amounts = new uint256[](_vesters.length * propsLength);</span>
+<span class="cstat-no" title="statement not covered" >        for (uint256 i = 0; i &lt; _vesters.length; i++) {</span>
+<span class="cstat-no" title="statement not covered" >            IVester vester = IVester(_vesters[i]);</span>
+<span class="cstat-no" title="statement not covered" >            IRewardTracker rewardTracker = IRewardTracker(vester.rewardTracker());</span>
+            amounts[i * propsLength] = vester.pairAmounts(_account);
+            amounts[i * propsLength + 1] = vester.getVestedAmount(_account);
+            amounts[i * propsLength + 2] = IERC20(_vesters[i]).balanceOf(_account);
+            amounts[i * propsLength + 3] = vester.claimedAmounts(_account);
+            amounts[i * propsLength + 4] = vester.claimable(_account);
+            amounts[i * propsLength + 5] = vester.getMaxVestableAmount(_account);
+            amounts[i * propsLength + 6] = vester.getCombinedAverageStakedAmount(_account);
+            amounts[i * propsLength + 7] = rewardTracker.cumulativeRewards(_account);
+            amounts[i * propsLength + 8] = vester.transferredCumulativeRewards(_account);
+            amounts[i * propsLength + 9] = vester.bonusRewards(_account);
+            amounts[i * propsLength + 10] = rewardTracker.averageStakedAmounts(_account);
+            amounts[i * propsLength + 11] = vester.transferredAverageStakedAmounts(_account);
+        }
+<span class="cstat-no" title="statement not covered" >        return amounts;</span>
+    }
+}
+&nbsp;</pre></td></tr>
+</table></pre>
+<div class='push'></div><!-- for sticky footer -->
+</div><!-- /wrapper -->
+<div class='footer quiet pad2 space-top1 center small'>
+  Code coverage
+  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Thu Mar 07 2024 06:38:22 GMT+0200 (Eastern European Standard Time)
+</div>
+</div>
+<script src="../prettify.js"></script>
+<script>
+window.onload = function () {
+        if (typeof prettyPrint === 'function') {
+            prettyPrint();
+        }
+};
+</script>
+<script src="../sorter.js"></script>
+</body>
+</html>

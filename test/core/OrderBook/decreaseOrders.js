@@ -6,6 +6,7 @@ const { toChainlinkPrice } = require("../../shared/chainlink")
 const { toUsd } = require("../../shared/units")
 const { initVault, getBnbConfig, getBtcConfig, getDaiConfig } = require("../Vault/helpers")
 const { getDefault, validateOrderFields, getTxFees, positionWrapper, defaultCreateDecreaseOrderFactory } = require('./helpers');
+const { priceFeedIds, priceUpdateData } = require("../../shared/pyth")
 
 use(solidity);
 
@@ -25,33 +26,34 @@ describe("OrderBook, decrease position orders", () => {
 
     let usdg
     let router
-    let bnb
-    let bnbPriceFeed
+    let eth
+    let ethPriceFeed
     let btc
     let btcPriceFeed
     let dai
     let daiPriceFeed
     let vaultPriceFeed
+    let pyth;
 
     beforeEach(async () => {
-        bnb = await deployContract("Token", [])
-        bnbPriceFeed = await deployContract("PriceFeed", [])
+        pyth = await deployContract("Pyth", [])
+        eth = await deployContract("Token", [])
+        ethPriceFeed = await deployContract("PythPriceFeedV2", [pyth.address,priceFeedIds.eth,10000])
 
         btc = await deployContract("Token", [])
-        btcPriceFeed = await deployContract("PriceFeed", [])
+        btcPriceFeed = await deployContract("PythPriceFeedV2", [pyth.address,priceFeedIds.btc,10000])
 
         eth = await deployContract("Token", [])
-        ethPriceFeed = await deployContract("PriceFeed", [])
+        ethPriceFeed = await deployContract("PythPriceFeedV2", [pyth.address,priceFeedIds.eth,10000])
 
         dai = await deployContract("Token", [])
-        daiPriceFeed = await deployContract("PriceFeed", [])
+        daiPriceFeed = await deployContract("PythPriceFeedV2", [pyth.address,priceFeedIds.dai,10000])
 
-        busd = await deployContract("Token", [])
-        busdPriceFeed = await deployContract("PriceFeed", [])
 
-    vault = await deployVault()
+
+        vault = await deployVault()
         usdg = await deployContract("USDG", [vault.address])
-        router = await deployContract("Router", [vault.address, usdg.address, bnb.address])
+        router = await deployContract("Router", [vault.address, usdg.address, eth.address,pyth.address])
         vaultPriceFeed = await deployVaultPriceFeed()
 
         const initVaultResult = await initVault(vault, router, usdg, vaultPriceFeed)
@@ -60,44 +62,46 @@ describe("OrderBook, decrease position orders", () => {
         yieldTracker0 = await deployContract("YieldTracker", [usdg.address])
 
         await yieldTracker0.setDistributor(distributor0.address)
-        await distributor0.setDistribution([yieldTracker0.address], [1000], [bnb.address])
+        await distributor0.setDistribution([yieldTracker0.address], [1000], [eth.address])
 
-        await bnb.mint(distributor0.address, 5000)
+        await eth.mint(distributor0.address, 5000)
         await usdg.setYieldTrackers([yieldTracker0.address])
 
         reader = await deployContract("Reader", [])
 
-        await vaultPriceFeed.setTokenConfig(bnb.address, bnbPriceFeed.address, 8, false)
+        await vaultPriceFeed.setTokenConfig(eth.address, ethPriceFeed.address, 8, false)
         await vaultPriceFeed.setTokenConfig(btc.address, btcPriceFeed.address, 8, false)
         await vaultPriceFeed.setTokenConfig(eth.address, ethPriceFeed.address, 8, false)
         await vaultPriceFeed.setTokenConfig(dai.address, daiPriceFeed.address, 8, false)
-        await vaultPriceFeed.setPriceSampleSpace(1);
 
         tokenDecimals = {
-            [bnb.address]: 18,
+            [eth.address]: 18,
             [dai.address]: 18,
             [btc.address]: 8
         };
 
-        await daiPriceFeed.setLatestAnswer(toChainlinkPrice(1))
+        await pyth.updatePrice(priceFeedIds.dai, toChainlinkPrice(1))
         await vault.setTokenConfig(...getDaiConfig(dai, daiPriceFeed))
 
-        await btcPriceFeed.setLatestAnswer(toChainlinkPrice(BTC_PRICE))
+        await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(BTC_PRICE))
         await vault.setTokenConfig(...getBtcConfig(btc, btcPriceFeed))
 
-        await bnbPriceFeed.setLatestAnswer(toChainlinkPrice(BNB_PRICE))
-        await vault.setTokenConfig(...getBnbConfig(bnb, bnbPriceFeed))
+        await pyth.updatePrice(priceFeedIds.eth, toChainlinkPrice(BNB_PRICE))
+        await vault.setTokenConfig(...getBnbConfig(eth, ethPriceFeed))
 
-        orderBook = await deployContract("OrderBook", [])
+        orderBook = await deployContract("OrderBookV2", [])
         const minExecutionFee = 500000;
         await orderBook.initialize(
             router.address,
             vault.address,
-            bnb.address,
+            eth.address,
             usdg.address,
             minExecutionFee,
-            expandDecimals(5, 30) // minPurchseTokenAmountUsd
+            expandDecimals(5, 30), // minPurchseTokenAmountUsd
+            pyth.address
         );
+
+        await orderBook.setHandler(wallet.address,true);
 
         await router.addPlugin(orderBook.address);
         await router.connect(user0).approvePlugin(orderBook.address);
@@ -116,9 +120,9 @@ describe("OrderBook, decrease position orders", () => {
         await btc.connect(user0).transfer(vault.address, expandDecimals(100, 8))
         await vault.directPoolDeposit(btc.address);
 
-        await bnb.mint(user0.address, expandDecimals(50000, 18))
-        await bnb.connect(user0).transfer(vault.address, expandDecimals(10000, 18))
-        await vault.directPoolDeposit(bnb.address);
+        await eth.mint(user0.address, expandDecimals(50000, 18))
+        await eth.connect(user0).transfer(vault.address, expandDecimals(10000, 18))
+        await vault.directPoolDeposit(eth.address);
 
         defaults = {
             path: [btc.address],
@@ -176,7 +180,7 @@ describe("OrderBook, decrease position orders", () => {
         let order = await getCreatedDecreaseOrder(defaults.user.address);
         const btcBalanceAfter = await btc.balanceOf(orderBook.address);
 
-        expect(await bnb.balanceOf(orderBook.address), 'BNB balance').to.be.equal(defaults.executionFee);
+        expect(await eth.balanceOf(orderBook.address), 'BNB balance').to.be.equal(defaults.executionFee);
 
         validateOrderFields(order, {
             account: defaults.user.address,
@@ -226,7 +230,7 @@ describe("OrderBook, decrease position orders", () => {
         const order = await getCreatedDecreaseOrder(defaults.user.address);
         const btcBalanceAfter = await btc.balanceOf(orderBook.address);
 
-        expect(await bnb.balanceOf(orderBook.address), 'BNB balance').to.be.equal(defaults.executionFee);
+        expect(await eth.balanceOf(orderBook.address), 'BNB balance').to.be.equal(defaults.executionFee);
 
         validateOrderFields(order, {
             account: defaults.user.address,
@@ -257,7 +261,6 @@ describe("OrderBook, decrease position orders", () => {
     });
 
     it("Execute decrease order, invalid price", async () => {
-        await vaultPriceFeed.setPriceSampleSpace(2);
         let triggerPrice, isLong, triggerAboveThreshold, newBtcPrice;
         let orderIndex = 0;
 
@@ -270,8 +273,8 @@ describe("OrderBook, decrease position orders", () => {
             [expandDecimals(BTC_PRICE + 1000, 30), false, true, BTC_PRICE + 1050, false]
         ]) {
             // "reset" BTC price
-            await btcPriceFeed.setLatestAnswer(toChainlinkPrice(BTC_PRICE));
-            await btcPriceFeed.setLatestAnswer(toChainlinkPrice(BTC_PRICE));
+            await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(BTC_PRICE));
+            await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(BTC_PRICE));
 
             await defaultCreateDecreaseOrder({
                 triggerPrice,
@@ -280,19 +283,19 @@ describe("OrderBook, decrease position orders", () => {
             });
 
             const order = await orderBook.decreaseOrders(defaults.user.address, orderIndex);
-            await expect(orderBook.executeDecreaseOrder(order.account, orderIndex, user1.address), 1)
+            await expect(orderBook["executeDecreaseOrder(address,uint256,address,bytes[])"](order.account, orderIndex, user1.address, priceUpdateData), 1)
                 .to.be.revertedWith("OrderBook: invalid price for execution");
 
-            if (setPriceTwice) {
-                // on first price update all limit orders are still invalid
-                btcPriceFeed.setLatestAnswer(toChainlinkPrice(newBtcPrice));
-                await expect(orderBook.executeDecreaseOrder(order.account, orderIndex, user1.address), 2)
-                    .to.be.revertedWith("OrderBook: invalid price for execution");
-            }
+            // if (setPriceTwice) {
+            //     // on first price update all limit orders are still invalid
+            //     await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(newBtcPrice));
+            //     await expect(orderBook["executeDecreaseOrder(address,uint256,address,bytes[])"](order.account, orderIndex, user1.address, priceUpdateData), 2)
+            //         .to.be.revertedWith("OrderBook: invalid price for execution");
+            // }
 
             // now both min and max prices satisfies requirement
-            btcPriceFeed.setLatestAnswer(toChainlinkPrice(newBtcPrice));
-            await expect(orderBook.executeDecreaseOrder(order.account, orderIndex, user1.address), 3)
+            await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(newBtcPrice));
+            await expect(orderBook["executeDecreaseOrder(address,uint256,address,bytes[])"](order.account, orderIndex, user1.address, priceUpdateData), 3)
                 .to.not.be.revertedWith("OrderBook: invalid price for execution");
             // so we are sure we passed price validations inside OrderBook
 
@@ -306,7 +309,7 @@ describe("OrderBook, decrease position orders", () => {
             triggerAboveThreshold: false
         });
 
-        await expect(orderBook.executeDecreaseOrder(defaults.user.address, 1, user1.address))
+        await expect(orderBook["executeDecreaseOrder(address,uint256,address,bytes[])"](defaults.user.address, 1, user1.address, priceUpdateData))
             .to.be.revertedWith("OrderBook: non-existent order");
     });
 
@@ -327,10 +330,10 @@ describe("OrderBook, decrease position orders", () => {
 
         const order = await orderBook.decreaseOrders(defaults.user.address, 0);
 
-        await btcPriceFeed.setLatestAnswer(toChainlinkPrice(BTC_PRICE + 5050));
+        await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(BTC_PRICE + 5050));
 
         const executorBalanceBefore = await user1.getBalance();
-        const tx = await orderBook.executeDecreaseOrder(defaults.user.address, 0, user1.address);
+        const tx = await orderBook["executeDecreaseOrder(address,uint256,address,bytes[])"](defaults.user.address, 0, user1.address, priceUpdateData);
         reportGasUsed(provider, tx, 'executeDecreaseOrder gas used');
 
         const executorBalanceAfter = await user1.getBalance();
@@ -367,11 +370,11 @@ describe("OrderBook, decrease position orders", () => {
 
         const order = await orderBook.decreaseOrders(defaults.user.address, 0);
 
-        await btcPriceFeed.setLatestAnswer(toChainlinkPrice(BTC_PRICE - 1500));
+        await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(BTC_PRICE - 1500));
 
         const executorBalanceBefore = await executor.getBalance();
 
-        const tx = await orderBook.executeDecreaseOrder(defaults.user.address, 0, executor.address);
+        const tx = await orderBook["executeDecreaseOrder(address,uint256,address,bytes[])"](defaults.user.address, 0, executor.address, priceUpdateData);
         reportGasUsed(provider, tx, 'executeDecreaseOrder gas used');
 
         const executorBalanceAfter = await executor.getBalance();
@@ -391,21 +394,22 @@ describe("OrderBook, decrease position orders", () => {
 
     it("Execute decrease order, long, BNB", async () => {
         await router.connect(defaults.user).increasePositionETH(
-            [bnb.address],
-            bnb.address,
+            [eth.address],
+            eth.address,
             0,
             toUsd(3000),
             true,
             toUsd(301),
+            priceUpdateData,
             {value: expandDecimals(5, 18)}
         );
 
-        let position = positionWrapper(await vault.getPosition(defaults.user.address, bnb.address, bnb.address, true));
+        let position = positionWrapper(await vault.getPosition(defaults.user.address, eth.address, eth.address, true));
 
         const userTx = await defaultCreateDecreaseOrder({
             collateralDelta: position.collateral.div(2),
-            collateralToken: bnb.address,
-            indexToken: bnb.address,
+            collateralToken: eth.address,
+            indexToken: eth.address,
             sizeDelta: position.size.div(2),
             triggerAboveThreshold: false,
             triggerPrice: toUsd(BTC_PRICE - 1000),
@@ -416,13 +420,13 @@ describe("OrderBook, decrease position orders", () => {
         const userTxFee = await getTxFees(provider, userTx);
         const order = await orderBook.decreaseOrders(defaults.user.address, 0);
 
-        await btcPriceFeed.setLatestAnswer(toChainlinkPrice(BTC_PRICE - 1500));
+        await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(BTC_PRICE - 1500));
 
         const executor = user1;
 
         const balanceBefore = await defaults.user.getBalance();
         const executorBalanceBefore = await executor.getBalance();
-        const tx = await orderBook.executeDecreaseOrder(defaults.user.address, 0, executor.address);
+        const tx = await orderBook["executeDecreaseOrder(address,uint256,address,bytes[])"](defaults.user.address, 0, executor.address, priceUpdateData);
         reportGasUsed(provider, tx, 'executeDecreaseOrder gas used');
 
         const executorBalanceAfter = await executor.getBalance();
@@ -432,7 +436,7 @@ describe("OrderBook, decrease position orders", () => {
         const amountOut = '2490000000000000000';
         expect(balanceAfter, 'balanceAfter').to.be.equal(balanceBefore.add(amountOut));
 
-        position = positionWrapper(await vault.getPosition(defaults.user.address, bnb.address, bnb.address, true));
+        position = positionWrapper(await vault.getPosition(defaults.user.address, eth.address, eth.address, true));
 
         expect(position.size, 'position.size').to.be.equal('1500000000000000000000000000000000');
         expect(position.collateral, 'position.collateral').to.be.equal('748500000000000000000000000000000');

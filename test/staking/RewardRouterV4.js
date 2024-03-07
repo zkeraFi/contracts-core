@@ -6,6 +6,8 @@ const { toChainlinkPrice } = require("../shared/chainlink")
 const { toUsd, toNormalizedPrice } = require("../shared/units")
 const { initVault, getBnbConfig, getBtcConfig, getDaiConfig } = require("../core/Vault/helpers")
 const { randomBytes } = require("ethers/lib/utils")
+const { priceFeedIds, priceUpdateData } = require("../shared/pyth")
+const { ADDRESS_ZERO } = require("@uniswap/v3-sdk")
 
 use(solidity)
 
@@ -23,16 +25,12 @@ describe("RewardRouterV4", function () {
   let usdg
   let router
   let vaultPriceFeed
-  let bnb
-  let bnbPriceFeed
-  let btc
-  let btcPriceFeed
   let eth
   let ethPriceFeed
+  let btc
+  let btcPriceFeed
   let dai
   let daiPriceFeed
-  let busd
-  let busdPriceFeed
 
   let zke
   let esZke
@@ -53,32 +51,37 @@ describe("RewardRouterV4", function () {
   let zkeVester
   let zlpVester
 
-  let rewardRouter
+  let degenLP
+  let feeDegenLPDistributor
+  let feeDegenLPTracker
+  let stakedDegenLPTracker
+  let stakedDegenLPDistributor
+  let degenLPManager
+  let degenLPVester
 
+  let rewardRouter
+  let blockInfoProxy
   let pyth
 
   beforeEach(async () => {
 
     pyth = await deployContract("Pyth", [])
-
-    bnb = await deployContract("Token", [])
-    bnbPriceFeed = await deployContract("PriceFeed", [])
+    blockInfoProxy = await deployProxyBlockInfo();
+    eth = await deployContract("Token", [])
+    ethPriceFeed = await deployContract("PythPriceFeedV2", [pyth.address, priceFeedIds.eth, 10000])
 
     btc = await deployContract("Token", [])
-    btcPriceFeed = await deployContract("PriceFeed", [])
+    btcPriceFeed = await deployContract("PythPriceFeedV2", [pyth.address, priceFeedIds.btc, 10000])
 
     eth = await deployContract("Token", [])
-    ethPriceFeed = await deployContract("PriceFeed", [])
+    ethPriceFeed = await deployContract("PythPriceFeedV2", [pyth.address, priceFeedIds.eth, 10000])
 
     dai = await deployContract("Token", [])
-    daiPriceFeed = await deployContract("PriceFeed", [])
-
-    busd = await deployContract("Token", [])
-    busdPriceFeed = await deployContract("PriceFeed", [])
+    daiPriceFeed = await deployContract("PythPriceFeedV2", [pyth.address, priceFeedIds.dai, 10000])
 
     vault = await deployVault()
     usdg = await deployContract("USDG", [vault.address])
-    router = await deployContract("Router", [vault.address, usdg.address, bnb.address, pyth.address])
+    router = await deployContract("Router", [vault.address, usdg.address, eth.address, pyth.address])
     vaultPriceFeed = await deployVaultPriceFeed()
     zlp = await deployContract("ZLP", [])
 
@@ -97,19 +100,19 @@ describe("RewardRouterV4", function () {
       100 // maxMarginFeeBasisPoints
     ])
 
-    await vaultPriceFeed.setTokenConfig(bnb.address, bnbPriceFeed.address, 8, false)
+    await vaultPriceFeed.setTokenConfig(eth.address, ethPriceFeed.address, 8, false)
     await vaultPriceFeed.setTokenConfig(btc.address, btcPriceFeed.address, 8, false)
     await vaultPriceFeed.setTokenConfig(eth.address, ethPriceFeed.address, 8, false)
     await vaultPriceFeed.setTokenConfig(dai.address, daiPriceFeed.address, 8, false)
 
-    await daiPriceFeed.setLatestAnswer(toChainlinkPrice(1))
+    await pyth.updatePrice(priceFeedIds.dai, toChainlinkPrice(1))
     await vault.setTokenConfig(...getDaiConfig(dai, daiPriceFeed))
 
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(60000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(60000))
     await vault.setTokenConfig(...getBtcConfig(btc, btcPriceFeed))
 
-    await bnbPriceFeed.setLatestAnswer(toChainlinkPrice(300))
-    await vault.setTokenConfig(...getBnbConfig(bnb, bnbPriceFeed))
+    await pyth.updatePrice(priceFeedIds.eth, toChainlinkPrice(300))
+    await vault.setTokenConfig(...getBnbConfig(eth, ethPriceFeed))
 
     await zlp.setInPrivateTransferMode(true)
     await zlp.setMinter(zlpManager.address, true)
@@ -166,6 +169,8 @@ describe("RewardRouterV4", function () {
       stakedZlpTracker.address, // _rewardTracker
     ])
 
+
+
     await stakedZkeTracker.setInPrivateTransferMode(true)
     await stakedZkeTracker.setInPrivateStakingMode(true)
     await bonusZkeTracker.setInPrivateTransferMode(true)
@@ -181,9 +186,42 @@ describe("RewardRouterV4", function () {
 
     await esZke.setInPrivateTransferMode(true)
 
-    rewardRouter = await deployContract("RewardRouterV3", [])
+    degenLP = await deployContract("ZLP", [])
+
+    degenLPManager = await deployZlpManager([vault.address, usdg.address, degenLP.address, ethers.constants.AddressZero, 24 * 60 * 60])
+
+    await degenLP.setInPrivateTransferMode(true)
+    await degenLP.setMinter(degenLPManager.address, true)
+    await degenLPManager.setInPrivateMode(true)
+
+    feeDegenLPTracker = await deployContract("RewardTracker", ["Fee degenLP", "fDegenLP"])
+    feeDegenLPDistributor = await deployContract("RewardDistributor", [eth.address, feeDegenLPTracker.address, blockInfoProxy.address])
+    await feeDegenLPTracker.initialize([degenLP.address], feeDegenLPDistributor.address)
+    await feeDegenLPDistributor.updateLastDistributionTime()
+
+    stakedDegenLPTracker = await deployContract("RewardTracker", ["Fee + Staked degenLP", "fsDegenLP"])
+    stakedDegenLPDistributor = await deployContract("RewardDistributor", [esZke.address, stakedDegenLPTracker.address, blockInfoProxy.address])
+    await stakedDegenLPTracker.initialize([feeDegenLPTracker.address], stakedDegenLPDistributor.address)
+    await stakedDegenLPDistributor.updateLastDistributionTime()
+
+    await feeDegenLPTracker.setInPrivateTransferMode(true)
+    await feeDegenLPTracker.setInPrivateStakingMode(true)
+    await stakedDegenLPTracker.setInPrivateTransferMode(true)
+    await stakedDegenLPTracker.setInPrivateStakingMode(true)
+
+    degenLPVester = await deployVester([
+      "Vested degenLP", // _name
+      "vDegenLP", // _symbol
+      vestingDuration, // _vestingDuration
+      esZke.address, // _esToken
+      stakedDegenLPTracker.address, // _pairToken
+      zke.address, // _claimableToken
+      stakedDegenLPTracker.address, // _rewardTracker
+    ])
+
+    rewardRouter = await deployContract("RewardRouterV4", [])
     await rewardRouter.initialize(
-      bnb.address,
+      eth.address,
       zke.address,
       esZke.address,
       bnZke.address,
@@ -196,6 +234,11 @@ describe("RewardRouterV4", function () {
       zlpManager.address,
       zkeVester.address,
       zlpVester.address,
+      degenLP.address,
+      feeDegenLPTracker.address,
+      stakedDegenLPTracker.address,
+      degenLPManager.address,
+      degenLPVester.address,
       pyth.address
     )
 
@@ -252,6 +295,31 @@ describe("RewardRouterV4", function () {
     await feeZkeTracker.setHandler(zkeVester.address, true)
     await stakedZlpTracker.setHandler(zlpVester.address, true)
 
+
+
+
+    await degenLPManager.setHandler(rewardRouter.address, true)
+
+    await feeDegenLPTracker.setHandler(stakedDegenLPTracker.address, true)
+    await degenLP.setHandler(feeDegenLPTracker.address, true)
+
+
+    await feeDegenLPTracker.setHandler(rewardRouter.address, true)
+    await stakedDegenLPTracker.setHandler(rewardRouter.address, true)
+
+    await esZke.setHandler(stakedDegenLPDistributor.address, true)
+    await esZke.setHandler(stakedDegenLPTracker.address, true)
+
+    await esZke.setHandler(degenLPVester.address, true)
+
+    await esZke.setMinter(degenLPVester.address, true)
+
+    await degenLPVester.setHandler(rewardRouter.address, true)
+
+    await stakedDegenLPTracker.setHandler(degenLPVester.address, true)
+
+
+
     await zlpManager.setGov(timelock.address)
     await stakedZkeTracker.setGov(timelock.address)
     await bonusZkeTracker.setGov(timelock.address)
@@ -269,7 +337,7 @@ describe("RewardRouterV4", function () {
   it("inits", async () => {
     expect(await rewardRouter.isInitialized()).eq(true)
 
-    expect(await rewardRouter.weth()).eq(bnb.address)
+    expect(await rewardRouter.weth()).eq(eth.address)
     expect(await rewardRouter.zke()).eq(zke.address)
     expect(await rewardRouter.esZke()).eq(esZke.address)
     expect(await rewardRouter.bnZke()).eq(bnZke.address)
@@ -289,7 +357,7 @@ describe("RewardRouterV4", function () {
     expect(await rewardRouter.zlpVester()).eq(zlpVester.address)
 
     await expect(rewardRouter.initialize(
-      bnb.address,
+      eth.address,
       zke.address,
       esZke.address,
       bnZke.address,
@@ -302,6 +370,11 @@ describe("RewardRouterV4", function () {
       zlpManager.address,
       zkeVester.address,
       zlpVester.address,
+      degenLP.address,
+      feeDegenLPTracker.address,
+      stakedDegenLPTracker.address,
+      degenLPManager.address,
+      degenLPVester.address,
       pyth.address
     )).to.be.revertedWith("RewardRouter: already initialized")
   })
@@ -501,14 +574,14 @@ describe("RewardRouterV4", function () {
     await eth.mint(feeZlpDistributor.address, expandDecimals(100, 18))
     await feeZlpDistributor.setTokensPerInterval("41335970000000") // 0.00004133597 ETH per second
 
-    await bnb.mint(user1.address, expandDecimals(1, 18))
-    await bnb.connect(user1).approve(zlpManager.address, expandDecimals(1, 18))
+    await eth.mint(user1.address, expandDecimals(1, 18))
+    await eth.connect(user1).approve(zlpManager.address, expandDecimals(1, 18))
     const tx0 = await rewardRouter.connect(user1).mintAndStakeZlp(
-      bnb.address,
+      eth.address,
       expandDecimals(1, 18),
       expandDecimals(299, 18),
       expandDecimals(299, 18),
-      [randomBytes(1)],{value:expandDecimals(1,1)}
+      [randomBytes(1)], { value: expandDecimals(1, 1) }
     )
     await reportGasUsed(provider, tx0, "mintAndStakeZlp gas used")
 
@@ -518,14 +591,14 @@ describe("RewardRouterV4", function () {
     expect(await stakedZlpTracker.stakedAmounts(user1.address)).eq(expandDecimals(2991, 17))
     expect(await stakedZlpTracker.depositBalances(user1.address, feeZlpTracker.address)).eq(expandDecimals(2991, 17))
 
-    await bnb.mint(user1.address, expandDecimals(2, 18))
-    await bnb.connect(user1).approve(zlpManager.address, expandDecimals(2, 18))
+    await eth.mint(user1.address, expandDecimals(2, 18))
+    await eth.connect(user1).approve(zlpManager.address, expandDecimals(2, 18))
     await rewardRouter.connect(user1).mintAndStakeZlp(
-      bnb.address,
+      eth.address,
       expandDecimals(2, 18),
       expandDecimals(299, 18),
       expandDecimals(299, 18),
-      [randomBytes(1)],{value:expandDecimals(1,1)}
+      [randomBytes(1)], { value: expandDecimals(1, 1) }
     )
 
     await increaseTime(provider, 24 * 60 * 60 + 1)
@@ -537,40 +610,40 @@ describe("RewardRouterV4", function () {
     expect(await stakedZlpTracker.claimable(user1.address)).gt(expandDecimals(1785, 18)) // 50000 / 28 => ~1785
     expect(await stakedZlpTracker.claimable(user1.address)).lt(expandDecimals(1786, 18))
 
-    await bnb.mint(user2.address, expandDecimals(1, 18))
-    await bnb.connect(user2).approve(zlpManager.address, expandDecimals(1, 18))
+    await eth.mint(user2.address, expandDecimals(1, 18))
+    await eth.connect(user2).approve(zlpManager.address, expandDecimals(1, 18))
     await rewardRouter.connect(user2).mintAndStakeZlp(
-      bnb.address,
+      eth.address,
       expandDecimals(1, 18),
       expandDecimals(299, 18),
       expandDecimals(299, 18),
-      [randomBytes(1)],{value:expandDecimals(1,1)}
+      [randomBytes(1)], { value: expandDecimals(1, 1) }
     )
 
     await expect(rewardRouter.connect(user2).unstakeAndRedeemZlp(
-      bnb.address,
+      eth.address,
       expandDecimals(299, 18),
       "990000000000000000", // 0.99
       user2.address,
-      [randomBytes(1)],{value:expandDecimals(1,1)}
+      [randomBytes(1)], { value: expandDecimals(1, 1) }
     )).to.be.revertedWith("ZlpManager: cooldown duration not yet passed")
 
     expect(await feeZlpTracker.stakedAmounts(user1.address)).eq("897300000000000000000") // 897.3
     expect(await stakedZlpTracker.stakedAmounts(user1.address)).eq("897300000000000000000")
-    expect(await bnb.balanceOf(user1.address)).eq(0)
+    expect(await eth.balanceOf(user1.address)).eq(0)
 
     const tx1 = await rewardRouter.connect(user1).unstakeAndRedeemZlp(
-      bnb.address,
+      eth.address,
       expandDecimals(299, 18),
       "990000000000000000", // 0.99
       user1.address,
-      [randomBytes(1)],{value:expandDecimals(1,1)}
+      [randomBytes(1)], { value: expandDecimals(1, 1) }
     )
     await reportGasUsed(provider, tx1, "unstakeAndRedeemZlp gas used")
 
     expect(await feeZlpTracker.stakedAmounts(user1.address)).eq("598300000000000000000") // 598.3
     expect(await stakedZlpTracker.stakedAmounts(user1.address)).eq("598300000000000000000")
-    expect(await bnb.balanceOf(user1.address)).eq("993676666666666666") // ~0.99
+    expect(await eth.balanceOf(user1.address)).eq("993676666666666666") // ~0.99
 
     await increaseTime(provider, 24 * 60 * 60)
     await mineBlock(provider)
@@ -590,10 +663,10 @@ describe("RewardRouterV4", function () {
     expect(await esZke.balanceOf(user1.address)).gt(expandDecimals(1785 + 1190, 18))
     expect(await esZke.balanceOf(user1.address)).lt(expandDecimals(1786 + 1191, 18))
 
-    expect(await eth.balanceOf(user1.address)).eq(0)
+    expect(await eth.balanceOf(user1.address)).eq("993676666666666666")
     await rewardRouter.connect(user1).claimFees()
-    expect(await eth.balanceOf(user1.address)).gt("5940000000000000000")
-    expect(await eth.balanceOf(user1.address)).lt("5960000000000000000")
+    expect(await eth.balanceOf(user1.address)).gt("6940000000000000000")
+    expect(await eth.balanceOf(user1.address)).lt("6950000000000000000")
 
     expect(await esZke.balanceOf(user2.address)).eq(0)
     await rewardRouter.connect(user2).claimEsZke()
@@ -635,53 +708,52 @@ describe("RewardRouterV4", function () {
 
     expect(await feeZlpTracker.stakedAmounts(user1.address)).eq("598300000000000000000") // 598.3
     expect(await stakedZlpTracker.stakedAmounts(user1.address)).eq("598300000000000000000")
-    expect(await bnb.balanceOf(user1.address)).eq("993676666666666666") // ~0.99
   })
 
   it("mintAndStakeZlpETH, unstakeAndRedeemZlpETH", async () => {
     const receiver0 = newWallet()
-    await expect(rewardRouter.connect(user0).mintAndStakeZlpETH(expandDecimals(300, 18), expandDecimals(300, 18), { value: 0 }))
+    await expect(rewardRouter.connect(user0).mintAndStakeZlpETH(expandDecimals(300, 18), expandDecimals(300, 18), priceUpdateData, { value: 0 }))
       .to.be.revertedWith("RewardRouter: invalid msg.value")
 
-    await expect(rewardRouter.connect(user0).mintAndStakeZlpETH(expandDecimals(300, 18), expandDecimals(300, 18), { value: expandDecimals(1, 18) }))
+    await expect(rewardRouter.connect(user0).mintAndStakeZlpETH(expandDecimals(300, 18), expandDecimals(300, 18), priceUpdateData, { value: expandDecimals(1, 18) }))
       .to.be.revertedWith("ZlpManager: insufficient USDG output")
 
-    await expect(rewardRouter.connect(user0).mintAndStakeZlpETH(expandDecimals(299, 18), expandDecimals(300, 18), { value: expandDecimals(1, 18) }))
+    await expect(rewardRouter.connect(user0).mintAndStakeZlpETH(expandDecimals(299, 18), expandDecimals(300, 18), priceUpdateData, { value: expandDecimals(1, 18) }))
       .to.be.revertedWith("ZlpManager: insufficient ZLP output")
 
-    expect(await bnb.balanceOf(user0.address)).eq(0)
-    expect(await bnb.balanceOf(vault.address)).eq(0)
-    expect(await bnb.totalSupply()).eq(0)
-    expect(await provider.getBalance(bnb.address)).eq(0)
+    expect(await eth.balanceOf(user0.address)).eq(0)
+    expect(await eth.balanceOf(vault.address)).eq(0)
+    expect(await eth.totalSupply()).eq(0)
+    expect(await provider.getBalance(eth.address)).eq(0)
     expect(await stakedZlpTracker.balanceOf(user0.address)).eq(0)
 
-    await rewardRouter.connect(user0).mintAndStakeZlpETH(expandDecimals(299, 18), expandDecimals(299, 18), { value: expandDecimals(1, 18) })
+    await rewardRouter.connect(user0).mintAndStakeZlpETH(expandDecimals(299, 18), expandDecimals(299, 18), priceUpdateData, { value: expandDecimals(1, 18) })
 
-    expect(await bnb.balanceOf(user0.address)).eq(0)
-    expect(await bnb.balanceOf(vault.address)).eq(expandDecimals(1, 18))
-    expect(await provider.getBalance(bnb.address)).eq(expandDecimals(1, 18))
-    expect(await bnb.totalSupply()).eq(expandDecimals(1, 18))
+    expect(await eth.balanceOf(user0.address)).eq(0)
+    expect(await eth.balanceOf(vault.address)).eq(expandDecimals(1, 18))
+    expect(await provider.getBalance(eth.address)).eq(expandDecimals(1, 18))
+    expect(await eth.totalSupply()).eq(expandDecimals(1, 18))
     expect(await stakedZlpTracker.balanceOf(user0.address)).eq("299100000000000000000") // 299.1
 
-    await expect(rewardRouter.connect(user0).unstakeAndRedeemZlpETH(expandDecimals(300, 18), expandDecimals(1, 18), receiver0.address))
+    await expect(rewardRouter.connect(user0).unstakeAndRedeemZlpETH(expandDecimals(300, 18), expandDecimals(1, 18), receiver0.address, priceUpdateData))
       .to.be.revertedWith("RewardTracker: _amount exceeds stakedAmount")
 
-    await expect(rewardRouter.connect(user0).unstakeAndRedeemZlpETH("299100000000000000000", expandDecimals(1, 18), receiver0.address))
+    await expect(rewardRouter.connect(user0).unstakeAndRedeemZlpETH("299100000000000000000", expandDecimals(1, 18), receiver0.address, priceUpdateData))
       .to.be.revertedWith("ZlpManager: cooldown duration not yet passed")
 
     await increaseTime(provider, 24 * 60 * 60 + 10)
 
-    await expect(rewardRouter.connect(user0).unstakeAndRedeemZlpETH("299100000000000000000", expandDecimals(1, 18), receiver0.address))
+    await expect(rewardRouter.connect(user0).unstakeAndRedeemZlpETH("299100000000000000000", expandDecimals(1, 18), receiver0.address, priceUpdateData))
       .to.be.revertedWith("ZlpManager: insufficient output")
 
-    await rewardRouter.connect(user0).unstakeAndRedeemZlpETH("299100000000000000000", "990000000000000000", receiver0.address)
+    await rewardRouter.connect(user0).unstakeAndRedeemZlpETH("299100000000000000000", "990000000000000000", receiver0.address, priceUpdateData)
     expect(await provider.getBalance(receiver0.address)).eq("994009000000000000") // 0.994009
-    expect(await bnb.balanceOf(vault.address)).eq("5991000000000000") // 0.005991
-    expect(await provider.getBalance(bnb.address)).eq("5991000000000000")
-    expect(await bnb.totalSupply()).eq("5991000000000000")
+    expect(await eth.balanceOf(vault.address)).eq("5991000000000000") // 0.005991
+    expect(await provider.getBalance(eth.address)).eq("5991000000000000")
+    expect(await eth.totalSupply()).eq("5991000000000000")
   })
 
-  it("zke: signalTransfer, acceptTransfer", async () =>{
+  it("zke: signalTransfer, acceptTransfer", async () => {
     await zke.setMinter(wallet.address, true)
     await zke.mint(user1.address, expandDecimals(200, 18))
     expect(await zke.balanceOf(user1.address)).eq(expandDecimals(200, 18))
@@ -763,7 +835,7 @@ describe("RewardRouterV4", function () {
     expect(await feeZkeTracker.depositBalances(user3.address, bnZke.address)).eq(0)
     expect(await stakedZkeTracker.depositBalances(user4.address, zke.address)).eq(expandDecimals(200, 18))
     expect(await stakedZkeTracker.depositBalances(user4.address, esZke.address)).gt(expandDecimals(892, 18))
-    expect(await stakedZkeTracker.depositBalances(user4.address, esZke.address)).lt(expandDecimals(893, 18))
+    expect(await stakedZkeTracker.depositBalances(user4.address, esZke.address)).lt(expandDecimals(894, 18))
     expect(await feeZkeTracker.depositBalances(user4.address, bnZke.address)).gt("547000000000000000") // 0.547
     expect(await feeZkeTracker.depositBalances(user4.address, bnZke.address)).lt("549000000000000000") // 0.548
     expect(await zkeVester.transferredAverageStakedAmounts(user4.address)).gt(expandDecimals(200, 18))
@@ -790,31 +862,31 @@ describe("RewardRouterV4", function () {
       .to.be.revertedWith("RewardRouter: transfer not signalled")
   })
 
-  it("zke, zlp: signalTransfer, acceptTransfer", async () =>{
+  it("zke, zlp: signalTransfer, acceptTransfer", async () => {
     await zke.setMinter(wallet.address, true)
     await zke.mint(zkeVester.address, expandDecimals(10000, 18))
     await zke.mint(zlpVester.address, expandDecimals(10000, 18))
     await eth.mint(feeZlpDistributor.address, expandDecimals(100, 18))
     await feeZlpDistributor.setTokensPerInterval("41335970000000") // 0.00004133597 ETH per second
 
-    await bnb.mint(user1.address, expandDecimals(1, 18))
-    await bnb.connect(user1).approve(zlpManager.address, expandDecimals(1, 18))
+    await eth.mint(user1.address, expandDecimals(1, 18))
+    await eth.connect(user1).approve(zlpManager.address, expandDecimals(1, 18))
     await rewardRouter.connect(user1).mintAndStakeZlp(
-      bnb.address,
+      eth.address,
       expandDecimals(1, 18),
       expandDecimals(299, 18),
       expandDecimals(299, 18),
-      [randomBytes(1)],{value:expandDecimals(1,1)}
+      [randomBytes(1)], { value: expandDecimals(1, 1) }
     )
 
-    await bnb.mint(user2.address, expandDecimals(1, 18))
-    await bnb.connect(user2).approve(zlpManager.address, expandDecimals(1, 18))
+    await eth.mint(user2.address, expandDecimals(1, 18))
+    await eth.connect(user2).approve(zlpManager.address, expandDecimals(1, 18))
     await rewardRouter.connect(user2).mintAndStakeZlp(
-      bnb.address,
+      eth.address,
       expandDecimals(1, 18),
       expandDecimals(299, 18),
       expandDecimals(299, 18),
-      [randomBytes(1)],{value:expandDecimals(1,1)}
+      [randomBytes(1)], { value: expandDecimals(1, 1) }
     )
 
     await zke.mint(user1.address, expandDecimals(200, 18))
@@ -1001,11 +1073,11 @@ describe("RewardRouterV4", function () {
     expect(await zke.balanceOf(user3.address)).eq(0)
 
     await expect(rewardRouter.connect(user3).unstakeAndRedeemZlp(
-      bnb.address,
+      eth.address,
       expandDecimals(1, 18),
       0,
       user3.address,
-      [randomBytes(1)],{value:expandDecimals(1,1)}
+      [randomBytes(1)], { value: expandDecimals(1, 1) }
     )).to.be.revertedWith("RewardTracker: burn amount exceeds balance")
 
     await increaseTime(provider, 24 * 60 * 60)
@@ -1123,92 +1195,14 @@ describe("RewardRouterV4", function () {
     expect(await zkeVester.getPairAmount(user3.address, expandDecimals(992, 18))).lt(expandDecimals(575, 18))
     expect(await zkeVester.getPairAmount(user1.address, expandDecimals(892, 18))).gt(expandDecimals(545, 18))
     expect(await zkeVester.getPairAmount(user1.address, expandDecimals(892, 18))).lt(expandDecimals(546, 18))
-
-    const esZkeBatchSender = await deployContract("EsZkeBatchSender", [esZke.address])
-
-    await timelock.signalSetHandler(esZke.address, esZkeBatchSender.address, true)
-    await timelock.signalSetHandler(zkeVester.address, esZkeBatchSender.address, true)
-    await timelock.signalSetHandler(zlpVester.address, esZkeBatchSender.address, true)
-    await timelock.signalMint(esZke.address, wallet.address, expandDecimals(1000, 18))
-
-    await increaseTime(provider, 20)
-    await mineBlock(provider)
-
-    await timelock.setHandler(esZke.address, esZkeBatchSender.address, true)
-    await timelock.setHandler(zkeVester.address, esZkeBatchSender.address, true)
-    await timelock.setHandler(zlpVester.address, esZkeBatchSender.address, true)
-    await timelock.processMint(esZke.address, wallet.address, expandDecimals(1000, 18))
-
-    await esZkeBatchSender.connect(wallet).send(
-      zkeVester.address,
-      4,
-      [user2.address, user3.address],
-      [expandDecimals(100, 18), expandDecimals(200, 18)]
-    )
-
-    expect(await zkeVester.transferredAverageStakedAmounts(user2.address)).gt(expandDecimals(37648, 18))
-    expect(await zkeVester.transferredAverageStakedAmounts(user2.address)).lt(expandDecimals(37649, 18))
-    expect(await zkeVester.transferredAverageStakedAmounts(user3.address)).gt(expandDecimals(12810, 18))
-    expect(await zkeVester.transferredAverageStakedAmounts(user3.address)).lt(expandDecimals(12811, 18))
-    expect(await zkeVester.transferredCumulativeRewards(user2.address)).eq(expandDecimals(100, 18))
-    expect(await zkeVester.transferredCumulativeRewards(user3.address)).gt(expandDecimals(892 + 200, 18))
-    expect(await zkeVester.transferredCumulativeRewards(user3.address)).lt(expandDecimals(893 + 200, 18))
-    expect(await zkeVester.bonusRewards(user2.address)).eq(0)
-    expect(await zkeVester.bonusRewards(user3.address)).eq(expandDecimals(100, 18))
-    expect(await zkeVester.getCombinedAverageStakedAmount(user2.address)).gt(expandDecimals(3971, 18))
-    expect(await zkeVester.getCombinedAverageStakedAmount(user2.address)).lt(expandDecimals(3972, 18))
-    expect(await zkeVester.getCombinedAverageStakedAmount(user3.address)).gt(expandDecimals(7943, 18))
-    expect(await zkeVester.getCombinedAverageStakedAmount(user3.address)).lt(expandDecimals(7944, 18))
-    expect(await zkeVester.getMaxVestableAmount(user2.address)).eq(expandDecimals(100, 18))
-    expect(await zkeVester.getMaxVestableAmount(user3.address)).gt(expandDecimals(1884 + 200, 18))
-    expect(await zkeVester.getMaxVestableAmount(user3.address)).lt(expandDecimals(1886 + 200, 18))
-    expect(await zkeVester.getPairAmount(user2.address, expandDecimals(100, 18))).gt(expandDecimals(3971, 18))
-    expect(await zkeVester.getPairAmount(user2.address, expandDecimals(100, 18))).lt(expandDecimals(3972, 18))
-    expect(await zkeVester.getPairAmount(user3.address, expandDecimals(1884 + 200, 18))).gt(expandDecimals(7936, 18))
-    expect(await zkeVester.getPairAmount(user3.address, expandDecimals(1884 + 200, 18))).lt(expandDecimals(7937, 18))
-
-    expect(await zlpVester.transferredAverageStakedAmounts(user4.address)).eq(0)
-    expect(await zlpVester.transferredCumulativeRewards(user4.address)).eq(0)
-    expect(await zlpVester.bonusRewards(user4.address)).eq(0)
-    expect(await zlpVester.getCombinedAverageStakedAmount(user4.address)).eq(0)
-    expect(await zlpVester.getMaxVestableAmount(user4.address)).eq(0)
-    expect(await zlpVester.getPairAmount(user4.address, expandDecimals(10, 18))).eq(0)
-
-    await esZkeBatchSender.connect(wallet).send(
-      zlpVester.address,
-      320,
-      [user4.address],
-      [expandDecimals(10, 18)]
-    )
-
-    expect(await zlpVester.transferredAverageStakedAmounts(user4.address)).eq(expandDecimals(3200, 18))
-    expect(await zlpVester.transferredCumulativeRewards(user4.address)).eq(expandDecimals(10, 18))
-    expect(await zlpVester.bonusRewards(user4.address)).eq(0)
-    expect(await zlpVester.getCombinedAverageStakedAmount(user4.address)).eq(expandDecimals(3200, 18))
-    expect(await zlpVester.getMaxVestableAmount(user4.address)).eq(expandDecimals(10, 18))
-    expect(await zlpVester.getPairAmount(user4.address, expandDecimals(10, 18))).eq(expandDecimals(3200, 18))
-
-    await esZkeBatchSender.connect(wallet).send(
-      zlpVester.address,
-      320,
-      [user4.address],
-      [expandDecimals(10, 18)]
-    )
-
-    expect(await zlpVester.transferredAverageStakedAmounts(user4.address)).eq(expandDecimals(6400, 18))
-    expect(await zlpVester.transferredCumulativeRewards(user4.address)).eq(expandDecimals(20, 18))
-    expect(await zlpVester.bonusRewards(user4.address)).eq(0)
-    expect(await zlpVester.getCombinedAverageStakedAmount(user4.address)).eq(expandDecimals(6400, 18))
-    expect(await zlpVester.getMaxVestableAmount(user4.address)).eq(expandDecimals(20, 18))
-    expect(await zlpVester.getPairAmount(user4.address, expandDecimals(10, 18))).eq(expandDecimals(3200, 18))
   })
 
   it("handleRewards", async () => {
     const timelockV2 = wallet
 
     // use new rewardRouter, use eth for weth
-    const rewardRouterV3 = await deployContract("RewardRouterV3", [])
-    await rewardRouterV3.initialize(
+    const RewardRouterV4 = await deployContract("RewardRouterV4", [])
+    await RewardRouterV4.initialize(
       eth.address,
       zke.address,
       esZke.address,
@@ -1221,7 +1215,13 @@ describe("RewardRouterV4", function () {
       stakedZlpTracker.address,
       zlpManager.address,
       zkeVester.address,
-      zlpVester.address
+      zlpVester.address,
+      degenLP.address,
+      feeDegenLPTracker.address,
+      stakedDegenLPTracker.address,
+      degenLPManager.address,
+      degenLPVester.address,
+      pyth.address
     )
 
     await timelock.signalSetGov(zlpManager.address, timelockV2.address)
@@ -1253,7 +1253,7 @@ describe("RewardRouterV4", function () {
     await timelock.setGov(zkeVester.address, timelockV2.address)
     await timelock.setGov(zlpVester.address, timelockV2.address)
 
-    await esZke.setHandler(rewardRouterV3.address, true)
+    await esZke.setHandler(RewardRouterV4.address, true)
     await esZke.setHandler(stakedZkeDistributor.address, true)
     await esZke.setHandler(stakedZlpDistributor.address, true)
     await esZke.setHandler(stakedZkeTracker.address, true)
@@ -1261,23 +1261,30 @@ describe("RewardRouterV4", function () {
     await esZke.setHandler(zkeVester.address, true)
     await esZke.setHandler(zlpVester.address, true)
 
-    await zlpManager.setHandler(rewardRouterV3.address, true)
-    await stakedZkeTracker.setHandler(rewardRouterV3.address, true)
-    await bonusZkeTracker.setHandler(rewardRouterV3.address, true)
-    await feeZkeTracker.setHandler(rewardRouterV3.address, true)
-    await feeZlpTracker.setHandler(rewardRouterV3.address, true)
-    await stakedZlpTracker.setHandler(rewardRouterV3.address, true)
+    await zlpManager.setHandler(RewardRouterV4.address, true)
+    await stakedZkeTracker.setHandler(RewardRouterV4.address, true)
+    await bonusZkeTracker.setHandler(RewardRouterV4.address, true)
+    await feeZkeTracker.setHandler(RewardRouterV4.address, true)
+    await feeZlpTracker.setHandler(RewardRouterV4.address, true)
+    await stakedZlpTracker.setHandler(RewardRouterV4.address, true)
 
-    await esZke.setHandler(rewardRouterV3.address, true)
-    await bnZke.setMinter(rewardRouterV3.address, true)
+    await esZke.setHandler(RewardRouterV4.address, true)
+    await bnZke.setMinter(RewardRouterV4.address, true)
     await esZke.setMinter(zkeVester.address, true)
     await esZke.setMinter(zlpVester.address, true)
 
-    await zkeVester.setHandler(rewardRouterV3.address, true)
-    await zlpVester.setHandler(rewardRouterV3.address, true)
+    await zkeVester.setHandler(RewardRouterV4.address, true)
+    await zlpVester.setHandler(RewardRouterV4.address, true)
 
     await feeZkeTracker.setHandler(zkeVester.address, true)
     await stakedZlpTracker.setHandler(zlpVester.address, true)
+
+    await degenLPManager.setHandler(RewardRouterV4.address, true)
+
+    await feeDegenLPTracker.setHandler(RewardRouterV4.address, true)
+    await stakedDegenLPTracker.setHandler(RewardRouterV4.address, true)
+
+    await degenLPVester.setHandler(RewardRouterV4.address, true)
 
     await eth.deposit({ value: expandDecimals(10, 18) })
 
@@ -1291,19 +1298,19 @@ describe("RewardRouterV4", function () {
     await eth.mint(feeZkeDistributor.address, expandDecimals(50, 18))
     await feeZkeDistributor.setTokensPerInterval("41335970000000") // 0.00004133597 ETH per second
 
-    await bnb.mint(user1.address, expandDecimals(1, 18))
-    await bnb.connect(user1).approve(zlpManager.address, expandDecimals(1, 18))
-    await rewardRouterV3.connect(user1).mintAndStakeZlp(
-      bnb.address,
+    await eth.mint(user1.address, expandDecimals(1, 18))
+    await eth.connect(user1).approve(zlpManager.address, expandDecimals(1, 18))
+    await RewardRouterV4.connect(user1).mintAndStakeZlp(
+      eth.address,
       expandDecimals(1, 18),
       expandDecimals(299, 18),
-      expandDecimals(299, 18)
+      expandDecimals(299, 18), priceUpdateData
     )
 
     await zke.mint(user1.address, expandDecimals(200, 18))
     expect(await zke.balanceOf(user1.address)).eq(expandDecimals(200, 18))
     await zke.connect(user1).approve(stakedZkeTracker.address, expandDecimals(200, 18))
-    await rewardRouterV3.connect(user1).stakeZke(expandDecimals(200, 18))
+    await RewardRouterV4.connect(user1).stakeZke(expandDecimals(200, 18))
     expect(await zke.balanceOf(user1.address)).eq(0)
 
     await increaseTime(provider, 24 * 60 * 60)
@@ -1319,7 +1326,7 @@ describe("RewardRouterV4", function () {
     expect(await stakedZkeTracker.depositBalances(user1.address, esZke.address)).eq(0)
     expect(await feeZkeTracker.depositBalances(user1.address, bnZke.address)).eq(0)
 
-    await rewardRouterV3.connect(user1).handleRewards(
+    await RewardRouterV4.connect(user1).handleRewards(
       true, // _shouldClaimZke
       true, // _shouldStakeZke
       true, // _shouldClaimEsZke
@@ -1347,7 +1354,7 @@ describe("RewardRouterV4", function () {
 
     const ethBalance0 = await provider.getBalance(user1.address)
 
-    await rewardRouterV3.connect(user1).handleRewards(
+    await RewardRouterV4.connect(user1).handleRewards(
       false, // _shouldClaimZke
       false, // _shouldStakeZke
       false, // _shouldClaimEsZke
@@ -1374,7 +1381,7 @@ describe("RewardRouterV4", function () {
     expect(await feeZkeTracker.depositBalances(user1.address, bnZke.address)).gt("540000000000000000") // 0.54
     expect(await feeZkeTracker.depositBalances(user1.address, bnZke.address)).lt("560000000000000000") // 0.56
 
-    await rewardRouterV3.connect(user1).handleRewards(
+    await RewardRouterV4.connect(user1).handleRewards(
       false, // _shouldClaimZke
       false, // _shouldStakeZke
       true, // _shouldClaimEsZke
@@ -1422,7 +1429,7 @@ describe("RewardRouterV4", function () {
     await increaseTime(provider, 24 * 60 * 60)
     await mineBlock(provider)
 
-    await rewardRouterV3.connect(user1).handleRewards(
+    await RewardRouterV4.connect(user1).handleRewards(
       true, // _shouldClaimZke
       false, // _shouldStakeZke
       false, // _shouldClaimEsZke
@@ -1448,247 +1455,5 @@ describe("RewardRouterV4", function () {
     expect(await stakedZkeTracker.depositBalances(user1.address, esZke.address)).lt(expandDecimals(3572, 18))
     expect(await feeZkeTracker.depositBalances(user1.address, bnZke.address)).gt("540000000000000000") // 0.54
     expect(await feeZkeTracker.depositBalances(user1.address, bnZke.address)).lt("560000000000000000") // 0.56
-  })
-
-  it("StakedZlp", async () => {
-    await eth.mint(feeZlpDistributor.address, expandDecimals(100, 18))
-    await feeZlpDistributor.setTokensPerInterval("41335970000000") // 0.00004133597 ETH per second
-
-    await bnb.mint(user1.address, expandDecimals(1, 18))
-    await bnb.connect(user1).approve(zlpManager.address, expandDecimals(1, 18))
-    await rewardRouter.connect(user1).mintAndStakeZlp(
-      bnb.address,
-      expandDecimals(1, 18),
-      expandDecimals(299, 18),
-      expandDecimals(299, 18),
-      [randomBytes(1)],{value:expandDecimals(1,1)}
-    )
-
-    expect(await feeZlpTracker.stakedAmounts(user1.address)).eq(expandDecimals(2991, 17))
-    expect(await feeZlpTracker.depositBalances(user1.address, zlp.address)).eq(expandDecimals(2991, 17))
-
-    expect(await stakedZlpTracker.stakedAmounts(user1.address)).eq(expandDecimals(2991, 17))
-    expect(await stakedZlpTracker.depositBalances(user1.address, feeZlpTracker.address)).eq(expandDecimals(2991, 17))
-
-    const proxyBlockInfo = await deployProxyBlockInfo();
-    const stakedZlp = await deployContract("StakedZlp", [zlp.address, zlpManager.address, stakedZlpTracker.address, feeZlpTracker.address, proxyBlockInfo.address])
-
-    await expect(stakedZlp.connect(user2).transferFrom(user1.address, user3.address, expandDecimals(2991, 17)))
-      .to.be.revertedWith("StakedZlp: transfer amount exceeds allowance")
-
-    await stakedZlp.connect(user1).approve(user2.address, expandDecimals(2991, 17))
-
-    await expect(stakedZlp.connect(user2).transferFrom(user1.address, user3.address, expandDecimals(2991, 17)))
-      .to.be.revertedWith("StakedZlp: cooldown duration not yet passed")
-
-    await increaseTime(provider, 24 * 60 * 60 + 10)
-    await mineBlock(provider)
-
-    await expect(stakedZlp.connect(user2).transferFrom(user1.address, user3.address, expandDecimals(2991, 17)))
-      .to.be.revertedWith("RewardTracker: forbidden")
-
-    await timelock.signalSetHandler(stakedZlpTracker.address, stakedZlp.address, true)
-    await increaseTime(provider, 20)
-    await mineBlock(provider)
-    await timelock.setHandler(stakedZlpTracker.address, stakedZlp.address, true)
-
-    await expect(stakedZlp.connect(user2).transferFrom(user1.address, user3.address, expandDecimals(2991, 17)))
-      .to.be.revertedWith("RewardTracker: forbidden")
-
-    await timelock.signalSetHandler(feeZlpTracker.address, stakedZlp.address, true)
-    await increaseTime(provider, 20)
-    await mineBlock(provider)
-    await timelock.setHandler(feeZlpTracker.address, stakedZlp.address, true)
-
-    expect(await feeZlpTracker.stakedAmounts(user1.address)).eq(expandDecimals(2991, 17))
-    expect(await feeZlpTracker.depositBalances(user1.address, zlp.address)).eq(expandDecimals(2991, 17))
-
-    expect(await stakedZlpTracker.stakedAmounts(user1.address)).eq(expandDecimals(2991, 17))
-    expect(await stakedZlpTracker.depositBalances(user1.address, feeZlpTracker.address)).eq(expandDecimals(2991, 17))
-
-    expect(await feeZlpTracker.stakedAmounts(user3.address)).eq(0)
-    expect(await feeZlpTracker.depositBalances(user3.address, zlp.address)).eq(0)
-
-    expect(await stakedZlpTracker.stakedAmounts(user3.address)).eq(0)
-    expect(await stakedZlpTracker.depositBalances(user3.address, feeZlpTracker.address)).eq(0)
-
-    await stakedZlp.connect(user2).transferFrom(user1.address, user3. address, expandDecimals(2991, 17))
-
-    expect(await feeZlpTracker.stakedAmounts(user1.address)).eq(0)
-    expect(await feeZlpTracker.depositBalances(user1.address, zlp.address)).eq(0)
-
-    expect(await stakedZlpTracker.stakedAmounts(user1.address)).eq(0)
-    expect(await stakedZlpTracker.depositBalances(user1.address, feeZlpTracker.address)).eq(0)
-
-    expect(await feeZlpTracker.stakedAmounts(user3.address)).eq(expandDecimals(2991, 17))
-    expect(await feeZlpTracker.depositBalances(user3.address, zlp.address)).eq(expandDecimals(2991, 17))
-
-    expect(await stakedZlpTracker.stakedAmounts(user3.address)).eq(expandDecimals(2991, 17))
-    expect(await stakedZlpTracker.depositBalances(user3.address, feeZlpTracker.address)).eq(expandDecimals(2991, 17))
-
-    await expect(stakedZlp.connect(user2).transferFrom(user3.address, user1.address, expandDecimals(3000, 17)))
-      .to.be.revertedWith("StakedZlp: transfer amount exceeds allowance")
-
-    await stakedZlp.connect(user3).approve(user2.address, expandDecimals(3000, 17))
-
-    await expect(stakedZlp.connect(user2).transferFrom(user3.address, user1.address, expandDecimals(3000, 17)))
-      .to.be.revertedWith("RewardTracker: _amount exceeds stakedAmount")
-
-    await stakedZlp.connect(user2).transferFrom(user3.address, user1.address, expandDecimals(1000, 17))
-
-    expect(await feeZlpTracker.stakedAmounts(user1.address)).eq(expandDecimals(1000, 17))
-    expect(await feeZlpTracker.depositBalances(user1.address, zlp.address)).eq(expandDecimals(1000, 17))
-
-    expect(await stakedZlpTracker.stakedAmounts(user1.address)).eq(expandDecimals(1000, 17))
-    expect(await stakedZlpTracker.depositBalances(user1.address, feeZlpTracker.address)).eq(expandDecimals(1000, 17))
-
-    expect(await feeZlpTracker.stakedAmounts(user3.address)).eq(expandDecimals(1991, 17))
-    expect(await feeZlpTracker.depositBalances(user3.address, zlp.address)).eq(expandDecimals(1991, 17))
-
-    expect(await stakedZlpTracker.stakedAmounts(user3.address)).eq(expandDecimals(1991, 17))
-    expect(await stakedZlpTracker.depositBalances(user3.address, feeZlpTracker.address)).eq(expandDecimals(1991, 17))
-
-    await stakedZlp.connect(user3).transfer(user1.address, expandDecimals(1500, 17))
-
-    expect(await feeZlpTracker.stakedAmounts(user1.address)).eq(expandDecimals(2500, 17))
-    expect(await feeZlpTracker.depositBalances(user1.address, zlp.address)).eq(expandDecimals(2500, 17))
-
-    expect(await stakedZlpTracker.stakedAmounts(user1.address)).eq(expandDecimals(2500, 17))
-    expect(await stakedZlpTracker.depositBalances(user1.address, feeZlpTracker.address)).eq(expandDecimals(2500, 17))
-
-    expect(await feeZlpTracker.stakedAmounts(user3.address)).eq(expandDecimals(491, 17))
-    expect(await feeZlpTracker.depositBalances(user3.address, zlp.address)).eq(expandDecimals(491, 17))
-
-    expect(await stakedZlpTracker.stakedAmounts(user3.address)).eq(expandDecimals(491, 17))
-    expect(await stakedZlpTracker.depositBalances(user3.address, feeZlpTracker.address)).eq(expandDecimals(491, 17))
-
-    await expect(stakedZlp.connect(user3).transfer(user1.address, expandDecimals(492, 17)))
-      .to.be.revertedWith("RewardTracker: _amount exceeds stakedAmount")
-
-    expect(await bnb.balanceOf(user1.address)).eq(0)
-
-    await rewardRouter.connect(user1).unstakeAndRedeemZlp(
-      bnb.address,
-      expandDecimals(2500, 17),
-      "830000000000000000", // 0.83
-      user1.address,
-      [randomBytes(1)],{value:expandDecimals(1,1)}
-    )
-
-    expect(await bnb.balanceOf(user1.address)).eq("830833333333333333")
-
-    await usdg.addVault(zlpManager.address)
-
-    expect(await bnb.balanceOf(user3.address)).eq("0")
-
-    await rewardRouter.connect(user3).unstakeAndRedeemZlp(
-      bnb.address,
-      expandDecimals(491, 17),
-      "160000000000000000", // 0.16
-      user3.address,
-      [randomBytes(1)],{value:expandDecimals(1,1)}
-    )
-
-    expect(await bnb.balanceOf(user3.address)).eq("163175666666666666")
-  })
-
-  it("FeeZlp", async () => {
-    await eth.mint(feeZlpDistributor.address, expandDecimals(100, 18))
-    await feeZlpDistributor.setTokensPerInterval("41335970000000") // 0.00004133597 ETH per second
-
-    await bnb.mint(user1.address, expandDecimals(1, 18))
-    await bnb.connect(user1).approve(zlpManager.address, expandDecimals(1, 18))
-    await rewardRouter.connect(user1).mintAndStakeZlp(
-      bnb.address,
-      expandDecimals(1, 18),
-      expandDecimals(299, 18),
-      expandDecimals(299, 18),
-      [randomBytes(1)],{value:expandDecimals(1,1)}
-    )
-
-    expect(await feeZlpTracker.stakedAmounts(user1.address)).eq(expandDecimals(2991, 17))
-    expect(await feeZlpTracker.depositBalances(user1.address, zlp.address)).eq(expandDecimals(2991, 17))
-
-    expect(await stakedZlpTracker.stakedAmounts(user1.address)).eq(expandDecimals(2991, 17))
-    expect(await stakedZlpTracker.depositBalances(user1.address, feeZlpTracker.address)).eq(expandDecimals(2991, 17))
-
-    const proxyBlockInfo = await deployProxyBlockInfo()
-    const zlpBalance = await deployContract("ZlpBalance", [zlpManager.address, stakedZlpTracker.address, proxyBlockInfo.address])
-
-    await expect(zlpBalance.connect(user2).transferFrom(user1.address, user3.address, expandDecimals(2991, 17)))
-      .to.be.revertedWith("ZlpBalance: transfer amount exceeds allowance")
-
-    await zlpBalance.connect(user1).approve(user2.address, expandDecimals(2991, 17))
-
-    await expect(zlpBalance.connect(user2).transferFrom(user1.address, user3.address, expandDecimals(2991, 17)))
-      .to.be.revertedWith("ZlpBalance: cooldown duration not yet passed")
-
-    await increaseTime(provider, 24 * 60 * 60 + 10)
-    await mineBlock(provider)
-
-    await expect(zlpBalance.connect(user2).transferFrom(user1.address, user3.address, expandDecimals(2991, 17)))
-      .to.be.revertedWith("RewardTracker: transfer amount exceeds allowance")
-
-    await timelock.signalSetHandler(stakedZlpTracker.address, zlpBalance.address, true)
-    await increaseTime(provider, 20)
-    await mineBlock(provider)
-    await timelock.setHandler(stakedZlpTracker.address, zlpBalance.address, true)
-
-    expect(await feeZlpTracker.stakedAmounts(user1.address)).eq(expandDecimals(2991, 17))
-    expect(await feeZlpTracker.depositBalances(user1.address, zlp.address)).eq(expandDecimals(2991, 17))
-
-    expect(await stakedZlpTracker.stakedAmounts(user1.address)).eq(expandDecimals(2991, 17))
-    expect(await stakedZlpTracker.depositBalances(user1.address, feeZlpTracker.address)).eq(expandDecimals(2991, 17))
-    expect(await stakedZlpTracker.balanceOf(user1.address)).eq(expandDecimals(2991, 17))
-
-    expect(await feeZlpTracker.stakedAmounts(user3.address)).eq(0)
-    expect(await feeZlpTracker.depositBalances(user3.address, zlp.address)).eq(0)
-
-    expect(await stakedZlpTracker.stakedAmounts(user3.address)).eq(0)
-    expect(await stakedZlpTracker.depositBalances(user3.address, feeZlpTracker.address)).eq(0)
-    expect(await stakedZlpTracker.balanceOf(user3.address)).eq(0)
-
-    await zlpBalance.connect(user2).transferFrom(user1.address, user3.address, expandDecimals(2991, 17))
-
-    expect(await feeZlpTracker.stakedAmounts(user1.address)).eq(expandDecimals(2991, 17))
-    expect(await feeZlpTracker.depositBalances(user1.address, zlp.address)).eq(expandDecimals(2991, 17))
-
-    expect(await stakedZlpTracker.stakedAmounts(user1.address)).eq(expandDecimals(2991, 17))
-    expect(await stakedZlpTracker.depositBalances(user1.address, feeZlpTracker.address)).eq(expandDecimals(2991, 17))
-    expect(await stakedZlpTracker.balanceOf(user1.address)).eq(0)
-
-    expect(await feeZlpTracker.stakedAmounts(user3.address)).eq(0)
-    expect(await feeZlpTracker.depositBalances(user3.address, zlp.address)).eq(0)
-
-    expect(await stakedZlpTracker.stakedAmounts(user3.address)).eq(0)
-    expect(await stakedZlpTracker.depositBalances(user3.address, feeZlpTracker.address)).eq(0)
-    expect(await stakedZlpTracker.balanceOf(user3.address)).eq(expandDecimals(2991, 17))
-
-    await expect(rewardRouter.connect(user1).unstakeAndRedeemZlp(
-      bnb.address,
-      expandDecimals(2991, 17),
-      "0",
-      user1.address,
-      [randomBytes(1)],{value:expandDecimals(1,1)}
-    )).to.be.revertedWith("RewardTracker: burn amount exceeds balance")
-
-    await zlpBalance.connect(user3).approve(user2.address, expandDecimals(3000, 17))
-
-    await expect(zlpBalance.connect(user2).transferFrom(user3.address, user1.address, expandDecimals(2992, 17)))
-      .to.be.revertedWith("RewardTracker: transfer amount exceeds balance")
-
-    await zlpBalance.connect(user2).transferFrom(user3.address, user1.address, expandDecimals(2991, 17))
-
-    expect(await bnb.balanceOf(user1.address)).eq(0)
-
-    await rewardRouter.connect(user1).unstakeAndRedeemZlp(
-      bnb.address,
-      expandDecimals(2991, 17),
-      "0",
-      user1.address,
-      [randomBytes(1)],{value:expandDecimals(1,1)}
-    )
-
-    expect(await bnb.balanceOf(user1.address)).eq("994009000000000000")
   })
 })

@@ -1,0 +1,806 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <title>Code coverage report for core\Router.sol</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="../prettify.css" />
+    <link rel="stylesheet" href="../base.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style type='text/css'>
+        .coverage-summary .sorter {
+            background-image: url(../sort-arrow-sprite.png);
+        }
+    </style>
+</head>
+<body>
+<div class='wrapper'>
+  <div class='pad1'>
+    <h1>
+      <a href="../index.html">all files</a> / <a href="index.html">core/</a> Router.sol
+    </h1>
+    <div class='clearfix'>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">74.12% </span>
+        <span class="quiet">Statements</span>
+        <span class='fraction'>63/85</span>
+      </div>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">64.29% </span>
+        <span class="quiet">Branches</span>
+        <span class='fraction'>36/56</span>
+      </div>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">80% </span>
+        <span class="quiet">Functions</span>
+        <span class='fraction'>24/30</span>
+      </div>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">77% </span>
+        <span class="quiet">Lines</span>
+        <span class='fraction'>77/100</span>
+      </div>
+    </div>
+  </div>
+  <div class='status-line medium'></div>
+<pre><table class="coverage">
+<tr><td class="line-count quiet">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65
+66
+67
+68
+69
+70
+71
+72
+73
+74
+75
+76
+77
+78
+79
+80
+81
+82
+83
+84
+85
+86
+87
+88
+89
+90
+91
+92
+93
+94
+95
+96
+97
+98
+99
+100
+101
+102
+103
+104
+105
+106
+107
+108
+109
+110
+111
+112
+113
+114
+115
+116
+117
+118
+119
+120
+121
+122
+123
+124
+125
+126
+127
+128
+129
+130
+131
+132
+133
+134
+135
+136
+137
+138
+139
+140
+141
+142
+143
+144
+145
+146
+147
+148
+149
+150
+151
+152
+153
+154
+155
+156
+157
+158
+159
+160
+161
+162
+163
+164
+165
+166
+167
+168
+169
+170
+171
+172
+173
+174
+175
+176
+177
+178
+179
+180
+181
+182
+183
+184
+185
+186
+187
+188
+189
+190
+191
+192
+193
+194
+195
+196
+197
+198
+199
+200
+201
+202
+203
+204
+205
+206
+207
+208
+209
+210
+211
+212
+213
+214
+215
+216
+217
+218
+219
+220
+221
+222
+223
+224
+225
+226
+227
+228
+229
+230
+231
+232
+233
+234
+235
+236
+237
+238
+239
+240
+241
+242
+243
+244
+245
+246
+247
+248</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">219×</span>
+<span class="cline-any cline-yes">216×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">939×</span>
+<span class="cline-any cline-yes">939×</span>
+<span class="cline-any cline-yes">939×</span>
+<span class="cline-any cline-yes">939×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">939×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">70×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">145×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">185×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">153×</span>
+<span class="cline-any cline-yes">149×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">119×</span>
+<span class="cline-any cline-yes">115×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">58×</span>
+<span class="cline-any cline-yes">56×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">111×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">111×</span>
+<span class="cline-any cline-yes">111×</span>
+<span class="cline-any cline-yes">102×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">5×</span>
+<span class="cline-any cline-yes">5×</span>
+<span class="cline-any cline-yes">5×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">5×</span>
+<span class="cline-any cline-yes">2×</span>
+<span class="cline-any cline-yes">2×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">5×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2×</span>
+<span class="cline-any cline-yes">2×</span>
+<span class="cline-any cline-yes">2×</span>
+<span class="cline-any cline-yes">2×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">6×</span>
+<span class="cline-any cline-yes">3×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">6×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3×</span>
+<span class="cline-any cline-yes">3×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">116×</span>
+<span class="cline-any cline-yes">111×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">5×</span>
+<span class="cline-any cline-yes">5×</span>
+<span class="cline-any cline-yes">4×</span>
+<span class="cline-any cline-yes">4×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">120×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">120×</span>
+<span class="cline-any cline-yes">102×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">9×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">9×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">118×</span>
+<span class="cline-any cline-yes">110×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">125×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">330×</span>
+<span class="cline-any cline-yes">325×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">120×</span>
+<span class="cline-any cline-yes">120×</span>
+<span class="cline-any cline-yes">120×</span>
+<span class="cline-any cline-yes">120×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// SPDX-License-Identifier: MIT
+pragma experimental ABIEncoderV2;
+pragma solidity 0.6.12;
+&nbsp;
+import "../libraries/math/SafeMath.sol";
+import "../libraries/token/IERC20.sol";
+import "../libraries/token/SafeERC20.sol";
+import "../libraries/utils/Address.sol";
+&nbsp;
+import "../tokens/interfaces/IWETH.sol";
+import "./interfaces/IVault.sol";
+import "./interfaces/IRouter.sol";
+import "../oracle/interfaces/IPyth_0_6_12.sol";
+&nbsp;
+&nbsp;
+contract Router is IRouter {
+    using SafeMath for uint256;
+    using SafeERC20 for IERC20;
+    using Address for address payable;
+&nbsp;
+    address public gov;
+&nbsp;
+    // wrapped BNB / ETH
+    address public weth;
+    address public usdg;
+    address public vault;
+    IPyth_0_6_12 public pyth;
+&nbsp;
+    mapping (address =&gt; bool) public plugins;
+    mapping (address =&gt; mapping (address =&gt; bool)) public approvedPlugins;
+&nbsp;
+    event Swap(address account, address tokenIn, address tokenOut, uint256 amountIn, uint256 amountOut);
+&nbsp;
+    modifier onlyGov() {
+        require(msg.sender == gov, "Router: forbidden");
+        _;
+    }
+&nbsp;
+    constructor(address _vault, address _usdg, address _weth, address _pyth) public {
+        vault = _vault;
+        usdg = _usdg;
+        weth = _weth;
+        pyth = IPyth_0_6_12(_pyth);
+&nbsp;
+        gov = msg.sender;
+    }
+&nbsp;
+    receive() external payable {
+        <span class="missing-if-branch" title="else path not taken" >E</span>require(msg.sender == weth, "Router: invalid sender");
+    }
+&nbsp;
+    function setGov(address _gov) external onlyGov {
+        gov = _gov;
+    }
+&nbsp;
+<span class="fstat-no" title="function not covered" >    function setPyth(address _pyth) external onlyGov {</span>
+        pyth = IPyth_0_6_12(_pyth);
+    }
+&nbsp;
+    function addPlugin(address _plugin) external override onlyGov {
+        plugins[_plugin] = true;
+    }
+&nbsp;
+    function removePlugin(address _plugin) external onlyGov {
+        plugins[_plugin] = false;
+    }
+&nbsp;
+    function approvePlugin(address _plugin) external {
+        approvedPlugins[msg.sender][_plugin] = true;
+    }
+&nbsp;
+    function denyPlugin(address _plugin) external {
+        approvedPlugins[msg.sender][_plugin] = false;
+    }
+&nbsp;
+    function pluginTransfer(address _token, address _account, address _receiver, uint256 _amount) external override {
+        _validatePlugin(_account);
+        IERC20(_token).safeTransferFrom(_account, _receiver, _amount);
+    }
+&nbsp;
+    function pluginIncreasePosition(address _account, address _collateralToken, address _indexToken, uint256 _sizeDelta, bool _isLong) external override {
+        _validatePlugin(_account);
+        IVault(vault).increasePosition(_account, _collateralToken, _indexToken, _sizeDelta, _isLong);
+    }
+&nbsp;
+    function pluginDecreasePosition(address _account, address _collateralToken, address _indexToken, uint256 _collateralDelta, uint256 _sizeDelta, bool _isLong, address _receiver) external override returns (uint256) {
+        _validatePlugin(_account);
+        return IVault(vault).decreasePosition(_account, _collateralToken, _indexToken, _collateralDelta, _sizeDelta, _isLong, _receiver);
+    }
+&nbsp;
+<span class="fstat-no" title="function not covered" >    function directPoolDeposit(address _token, uint256 _amount) external {</span>
+<span class="cstat-no" title="statement not covered" >        IERC20(_token).safeTransferFrom(_sender(), vault, _amount)</span>;
+<span class="cstat-no" title="statement not covered" >        IVault(vault).directPoolDeposit(_token)</span>;
+    }
+&nbsp;
+    function swap(address[] memory _path, uint256 _amountIn, uint256 _minOut, address _receiver, bytes[] calldata priceUpdateData) public payable override {
+        _updatePrice(priceUpdateData);
+&nbsp;
+        IERC20(_path[0]).safeTransferFrom(_sender(), vault, _amountIn);
+        uint256 amountOut = _swap(_path, _minOut, _receiver);
+        emit Swap(msg.sender, _path[0], _path[_path.length - 1], _amountIn, amountOut);
+    }
+&nbsp;
+<span class="fstat-no" title="function not covered" >    function swapETHToTokens(address[] memory _path, uint256 _minOut, address _receiver, bytes[] calldata priceUpdateData) external payable {</span>
+<span class="cstat-no" title="statement not covered" >        require(_path[0] == weth, "Router: invalid _path")</span>;
+<span class="cstat-no" title="statement not covered" >        uint256 newMsgValue = _updatePrice(priceUpdateData);</span>
+<span class="cstat-no" title="statement not covered" >        _transferETHToVault(newMsgValue)</span>;
+<span class="cstat-no" title="statement not covered" >        uint256 amountOut = _swap(_path, _minOut, _receiver);</span>
+<span class="cstat-no" title="statement not covered" >        emit Swap(msg.sender, _path[0], _path[_path.length - 1], newMsgValue, amountOut);</span>
+    }
+&nbsp;
+<span class="fstat-no" title="function not covered" >    function swapTokensToETH(address[] memory _path, uint256 _amountIn, uint256 _minOut, address payable _receiver, bytes[] calldata priceUpdateData) external payable{</span>
+<span class="cstat-no" title="statement not covered" >        require(_path[_path.length - 1] == weth, "Router: invalid _path")</span>;
+<span class="cstat-no" title="statement not covered" >        _updatePrice(priceUpdateData)</span>;
+&nbsp;
+<span class="cstat-no" title="statement not covered" >        IERC20(_path[0]).safeTransferFrom(_sender(), vault, _amountIn)</span>;
+<span class="cstat-no" title="statement not covered" >        uint256 amountOut = _swap(_path, _minOut, address(this));</span>
+<span class="cstat-no" title="statement not covered" >        _transferOutETH(amountOut, _receiver)</span>;
+<span class="cstat-no" title="statement not covered" >        emit Swap(msg.sender, _path[0], _path[_path.length - 1], _amountIn, amountOut);</span>
+    }
+&nbsp;
+    function increasePosition(address[] memory _path, address _indexToken, uint256 _amountIn, uint256 _minOut, uint256 _sizeDelta, bool _isLong, uint256 _price, bytes[] calldata priceUpdateData) external {
+        _updatePrice(priceUpdateData);
+        <span class="missing-if-branch" title="else path not taken" >E</span>if (_amountIn &gt; 0) {
+            IERC20(_path[0]).safeTransferFrom(_sender(), vault, _amountIn);
+        }
+        if (_path.length &gt; 1 &amp;&amp; _amountIn &gt; 0) {
+            uint256 amountOut = _swap(_path, _minOut, address(this));
+            IERC20(_path[_path.length - 1]).safeTransfer(vault, amountOut);
+        }
+        _increasePosition(_path[_path.length - 1], _indexToken, _sizeDelta, _isLong, _price);
+    }
+&nbsp;
+    function increasePositionETH(address[] memory _path, address _indexToken, uint256 _minOut, uint256 _sizeDelta, bool _isLong, uint256 _price, bytes[] calldata priceUpdateData) external payable {
+        <span class="missing-if-branch" title="else path not taken" >E</span>require(_path[0] == weth, "Router: invalid _path");
+        uint256 newMsgValue = _updatePrice(priceUpdateData);
+        <span class="missing-if-branch" title="else path not taken" >E</span>if (newMsgValue &gt; 0) {
+            _transferETHToVault(newMsgValue);
+        }
+        <span class="missing-if-branch" title="if path not taken" >I</span>if (_path.length &gt; 1 &amp;&amp; newMsgValue &gt; 0) {
+<span class="cstat-no" title="statement not covered" >            uint256 amountOut = _swap(_path, _minOut, address(this));</span>
+<span class="cstat-no" title="statement not covered" >            IERC20(_path[_path.length - 1]).safeTransfer(vault, amountOut)</span>;
+        }
+        _increasePosition(_path[_path.length - 1], _indexToken, _sizeDelta, _isLong, _price);
+    }
+&nbsp;
+<span class="fstat-no" title="function not covered" >    function decreasePosition(address _collateralToken, address _indexToken, uint256 _collateralDelta, uint256 _sizeDelta, bool _isLong, address _receiver, uint256 _price, bytes[] calldata priceUpdateData) external payable{</span>
+<span class="cstat-no" title="statement not covered" >        _updatePrice(priceUpdateData)</span>;
+<span class="cstat-no" title="statement not covered" >        _decreasePosition(_collateralToken, _indexToken, _collateralDelta, _sizeDelta, _isLong, _receiver, _price)</span>;
+    }
+&nbsp;
+<span class="fstat-no" title="function not covered" >    function decreasePositionETH(address _collateralToken, address _indexToken, uint256 _collateralDelta, uint256 _sizeDelta, bool _isLong, address payable _receiver, uint256 _price, bytes[] calldata priceUpdateData) external payable{</span>
+<span class="cstat-no" title="statement not covered" >        _updatePrice(priceUpdateData)</span>;
+<span class="cstat-no" title="statement not covered" >        uint256 amountOut = _decreasePosition(_collateralToken, _indexToken, _collateralDelta, _sizeDelta, _isLong, address(this), _price);</span>
+<span class="cstat-no" title="statement not covered" >        _transferOutETH(amountOut, _receiver)</span>;
+    }
+&nbsp;
+    function decreasePositionAndSwap(address[] memory _path, address _indexToken, uint256 _collateralDelta, uint256 _sizeDelta, bool _isLong, address _receiver, uint256 _price, uint256 _minOut, bytes[] calldata priceUpdateData) external payable{
+        _updatePrice(priceUpdateData);
+        uint256 amount = _decreasePosition(_path[0], _indexToken, _collateralDelta, _sizeDelta, _isLong, address(this), _price);
+        IERC20(_path[0]).safeTransfer(vault, amount);
+        _swap(_path, _minOut, _receiver);
+    }
+&nbsp;
+    function decreasePositionAndSwapETH(address[] memory _path, address _indexToken, uint256 _collateralDelta, uint256 _sizeDelta, bool _isLong, address payable _receiver, uint256 _price, uint256 _minOut, bytes[] calldata priceUpdateData) external payable{
+        <span class="missing-if-branch" title="else path not taken" >E</span>require(_path[_path.length - 1] == weth, "Router: invalid _path");
+        _updatePrice(priceUpdateData);
+        uint256 amount = _decreasePosition(_path[0], _indexToken, _collateralDelta, _sizeDelta, _isLong, address(this), _price);
+        IERC20(_path[0]).safeTransfer(vault, amount);
+        uint256 amountOut = _swap(_path, _minOut, address(this));
+        _transferOutETH(amountOut, _receiver);
+    }
+&nbsp;
+    function _increasePosition(address _collateralToken, address _indexToken, uint256 _sizeDelta, bool _isLong, uint256 _price) private {
+        if (_isLong) {
+            <span class="missing-if-branch" title="else path not taken" >E</span>require(IVault(vault).getMaxPrice(_indexToken) &lt;= _price, "Router: mark price higher than limit");
+        } else {
+            <span class="missing-if-branch" title="else path not taken" >E</span>require(IVault(vault).getMinPrice(_indexToken) &gt;= _price, "Router: mark price lower than limit");
+        }
+&nbsp;
+        IVault(vault).increasePosition(_sender(), _collateralToken, _indexToken, _sizeDelta, _isLong);
+    }
+&nbsp;
+    function _decreasePosition(address _collateralToken, address _indexToken, uint256 _collateralDelta, uint256 _sizeDelta, bool _isLong, address _receiver, uint256 _price) private returns (uint256) {
+        <span class="missing-if-branch" title="else path not taken" >E</span>if (_isLong) {
+            <span class="missing-if-branch" title="else path not taken" >E</span>require(IVault(vault).getMinPrice(_indexToken) &gt;= _price, "Router: mark price lower than limit");
+        } else {
+<span class="cstat-no" title="statement not covered" >            require(IVault(vault).getMaxPrice(_indexToken) &lt;= _price, "Router: mark price higher than limit")</span>;
+        }
+&nbsp;
+        return IVault(vault).decreasePosition(_sender(), _collateralToken, _indexToken, _collateralDelta, _sizeDelta, _isLong, _receiver);
+    }
+&nbsp;
+    function _transferETHToVault(uint256 value) private {
+        IWETH(weth).deposit{value: value}();
+        IERC20(weth).safeTransfer(vault, value);
+    }
+&nbsp;
+    function _transferOutETH(uint256 _amountOut, address payable _receiver) private {
+        IWETH(weth).withdraw(_amountOut);
+        _receiver.sendValue(_amountOut);
+    }
+&nbsp;
+    function _swap(address[] memory _path, uint256 _minOut, address _receiver) private returns (uint256) {
+        if (_path.length == 2) {
+            return _vaultSwap(_path[0], _path[1], _minOut, _receiver);
+        }
+        <span class="missing-if-branch" title="else path not taken" >E</span>if (_path.length == 3) {
+            uint256 midOut = _vaultSwap(_path[0], _path[1], 0, address(this));
+            IERC20(_path[1]).safeTransfer(vault, midOut);
+            return _vaultSwap(_path[1], _path[2], _minOut, _receiver);
+        }
+&nbsp;
+<span class="cstat-no" title="statement not covered" >        revert("Router: invalid _path.length")</span>;
+    }
+&nbsp;
+    function _vaultSwap(address _tokenIn, address _tokenOut, uint256 _minOut, address _receiver) private returns (uint256) {
+        uint256 amountOut;
+&nbsp;
+        if (_tokenOut == usdg) { // buyUSDG
+            amountOut = IVault(vault).buyUSDG(_tokenIn, _receiver);
+        } else if (_tokenIn == usdg) { // sellUSDG
+            amountOut = IVault(vault).sellUSDG(_tokenOut, _receiver);
+        } else { // swap
+            amountOut = IVault(vault).swap(_tokenIn, _tokenOut, _receiver);
+        }
+&nbsp;
+        require(amountOut &gt;= _minOut, "Router: insufficient amountOut");
+        return amountOut;
+    }
+&nbsp;
+    function _sender() private view returns (address) {
+        return msg.sender;
+    }
+&nbsp;
+    function _validatePlugin(address _account) private view {
+        require(plugins[msg.sender], "Router: invalid plugin");
+        require(approvedPlugins[_account][msg.sender], "Router: plugin not approved");
+    }
+&nbsp;
+    function _updatePrice(bytes[] calldata priceUpdateData) private returns(uint256) {
+        uint256 fee = pyth.getUpdateFee(priceUpdateData);
+        <span class="missing-if-branch" title="else path not taken" >E</span>require(msg.value &gt;= fee, "Router: use correct price update fee");
+        pyth.updatePriceFeeds{ value: fee }(priceUpdateData);
+        return msg.value - fee;
+    }
+}
+&nbsp;</pre></td></tr>
+</table></pre>
+<div class='push'></div><!-- for sticky footer -->
+</div><!-- /wrapper -->
+<div class='footer quiet pad2 space-top1 center small'>
+  Code coverage
+  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Thu Mar 07 2024 06:38:22 GMT+0200 (Eastern European Standard Time)
+</div>
+</div>
+<script src="../prettify.js"></script>
+<script>
+window.onload = function () {
+        if (typeof prettyPrint === 'function') {
+            prettyPrint();
+        }
+};
+</script>
+<script src="../sorter.js"></script>
+</body>
+</html>

@@ -15,6 +15,7 @@ const {
     defaultCreateSwapOrderFactory,
     PRICE_PRECISION
 } = require('./helpers');
+const { priceFeedIds } = require("../../shared/pyth")
 
 use(solidity);
 
@@ -32,26 +33,27 @@ describe("OrderBook, cancelMultiple", function () {
     let swapOrderDefaults;
     let tokenDecimals;
     let defaultCreateIncreaseOrder;
+    let pyth;
 
     beforeEach(async () => {
-        bnb = await deployContract("Token", [])
-        bnbPriceFeed = await deployContract("PriceFeed", [])
+        pyth = await deployContract("Pyth", [])
+        eth = await deployContract("Token", [])
+        ethPriceFeed = await deployContract("PythPriceFeedV2", [pyth.address,priceFeedIds.eth,10000])
 
         btc = await deployContract("Token", [])
-        btcPriceFeed = await deployContract("PriceFeed", [])
+        btcPriceFeed = await deployContract("PythPriceFeedV2", [pyth.address,priceFeedIds.btc,10000])
 
         eth = await deployContract("Token", [])
-        ethPriceFeed = await deployContract("PriceFeed", [])
+        ethPriceFeed = await deployContract("PythPriceFeedV2", [pyth.address,priceFeedIds.eth,10000])
 
         dai = await deployContract("Token", [])
-        daiPriceFeed = await deployContract("PriceFeed", [])
+        daiPriceFeed = await deployContract("PythPriceFeedV2", [pyth.address,priceFeedIds.dai,10000])
 
         busd = await deployContract("Token", [])
-        busdPriceFeed = await deployContract("PriceFeed", [])
 
         vault = await deployVault()
         usdg = await deployContract("USDG", [vault.address])
-        router = await deployContract("Router", [vault.address, usdg.address, bnb.address])
+        router = await deployContract("Router", [vault.address, usdg.address, eth.address,pyth.address])
         vaultPriceFeed = await deployVaultPriceFeed()
 
         await initVault(vault, router, usdg, vaultPriceFeed)
@@ -60,45 +62,45 @@ describe("OrderBook, cancelMultiple", function () {
         yieldTracker0 = await deployContract("YieldTracker", [usdg.address])
 
         await yieldTracker0.setDistributor(distributor0.address)
-        await distributor0.setDistribution([yieldTracker0.address], [1000], [bnb.address])
+        await distributor0.setDistribution([yieldTracker0.address], [1000], [eth.address])
 
-        await bnb.mint(distributor0.address, 5000)
+        await eth.mint(distributor0.address, 5000)
         await usdg.setYieldTrackers([yieldTracker0.address])
 
         reader = await deployContract("Reader", [])
 
-        await vaultPriceFeed.setTokenConfig(bnb.address, bnbPriceFeed.address, 8, false)
+        await vaultPriceFeed.setTokenConfig(eth.address, ethPriceFeed.address, 8, false)
         await vaultPriceFeed.setTokenConfig(btc.address, btcPriceFeed.address, 8, false)
         await vaultPriceFeed.setTokenConfig(eth.address, ethPriceFeed.address, 8, false)
         await vaultPriceFeed.setTokenConfig(dai.address, daiPriceFeed.address, 8, false)
-        await vaultPriceFeed.setPriceSampleSpace(1);
 
         tokenDecimals = {
-            [bnb.address]: 18,
+            [eth.address]: 18,
             [dai.address]: 18,
             [btc.address]: 8
         };
 
-        await daiPriceFeed.setLatestAnswer(toChainlinkPrice(1))
+        await pyth.updatePrice(priceFeedIds.dai, toChainlinkPrice(1))
         await vault.setTokenConfig(...getDaiConfig(dai, daiPriceFeed))
 
-        await btcPriceFeed.setLatestAnswer(toChainlinkPrice(BTC_PRICE))
+        await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(BTC_PRICE))
         await vault.setTokenConfig(...getBtcConfig(btc, btcPriceFeed))
 
-        await bnbPriceFeed.setLatestAnswer(toChainlinkPrice(BNB_PRICE))
-        await vault.setTokenConfig(...getBnbConfig(bnb, bnbPriceFeed))
+        await pyth.updatePrice(priceFeedIds.eth, toChainlinkPrice(BNB_PRICE))
+        await vault.setTokenConfig(...getBnbConfig(eth, ethPriceFeed))
 
-        orderBook = await deployContract("OrderBook", [])
+        orderBook = await deployContract("OrderBookV2", [])
         const minExecutionFee = 500000;
         await orderBook.initialize(
             router.address,
             vault.address,
-            bnb.address,
+            eth.address,
             usdg.address,
             minExecutionFee,
-            expandDecimals(5, 30) // minPurchseTokenAmountUsd
+            expandDecimals(5, 30), // minPurchseTokenAmountUsd
+            pyth.address
         );
-
+        await orderBook.setHandler(wallet.address,true);
         await router.addPlugin(orderBook.address);
         await router.connect(user0).approvePlugin(orderBook.address);
 
@@ -108,8 +110,8 @@ describe("OrderBook, cancelMultiple", function () {
         await dai.mint(user0.address, expandDecimals(10000000, 18))
         await dai.connect(user0).approve(router.address, expandDecimals(1000000, 18))
 
-        await bnb.mint(user0.address, expandDecimals(10000000, 18))
-        await bnb.connect(user0).approve(router.address, expandDecimals(1000000, 18))
+        await eth.mint(user0.address, expandDecimals(10000000, 18))
+        await eth.connect(user0).approve(router.address, expandDecimals(1000000, 18))
 
         await dai.mint(user0.address, expandDecimals(20000000, 18))
         await dai.connect(user0).transfer(vault.address, expandDecimals(2000000, 18))
@@ -119,9 +121,9 @@ describe("OrderBook, cancelMultiple", function () {
         await btc.connect(user0).transfer(vault.address, expandDecimals(100, 8))
         await vault.directPoolDeposit(btc.address);
 
-        await bnb.mint(user0.address, expandDecimals(50000, 18))
-        await bnb.connect(user0).transfer(vault.address, expandDecimals(10000, 18))
-        await vault.directPoolDeposit(bnb.address);
+        await eth.mint(user0.address, expandDecimals(50000, 18))
+        await eth.connect(user0).transfer(vault.address, expandDecimals(10000, 18))
+        await vault.directPoolDeposit(eth.address);
 
         increaseOrderDefaults = {
             path: [btc.address],

@@ -7,6 +7,7 @@ import "@nomiclabs/hardhat-etherscan";
 import "@nomiclabs/hardhat-ethers";
 import "@nomiclabs/hardhat-waffle";
 import "hardhat-abi-exporter";
+import 'solidity-coverage';
 
 const config: HardhatUserConfig = {
   networks: {

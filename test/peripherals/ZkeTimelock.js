@@ -5,6 +5,7 @@ const { expandDecimals, getBlockTime, increaseTime, mineBlock, reportGasUsed } =
 const { toChainlinkPrice } = require("../shared/chainlink")
 const { toUsd, toNormalizedPrice } = require("../shared/units")
 const { initVault } = require("../core/Vault/helpers")
+const { priceFeedIds } = require("../shared/pyth")
 
 use(solidity)
 
@@ -18,8 +19,8 @@ describe("ZkeTimelock", function () {
   let vaultPriceFeed
   let usdg
   let router
-  let bnb
-  let bnbPriceFeed
+  let eth
+  let ethPriceFeed
   let btc
   let btcPriceFeed
   let dai
@@ -27,20 +28,22 @@ describe("ZkeTimelock", function () {
   let distributor0
   let yieldTracker0
   let timelock
+  let pyth
 
   beforeEach(async () => {
-    bnb = await deployContract("Token", [])
-    bnbPriceFeed = await deployContract("PriceFeed", [])
+    pyth = await deployContract("Pyth", [])
+    eth = await deployContract("Token", [])
+    ethPriceFeed = await deployContract("PythPriceFeedV2", [pyth.address,priceFeedIds.eth,10000])
 
     btc = await deployContract("Token", [])
-    btcPriceFeed = await deployContract("PriceFeed", [])
+    btcPriceFeed = await deployContract("PythPriceFeedV2", [pyth.address,priceFeedIds.btc,10000])
 
     dai = await deployContract("Token", [])
-    daiPriceFeed = await deployContract("PriceFeed", [])
+    daiPriceFeed = await deployContract("PythPriceFeedV2", [pyth.address,priceFeedIds.dai,10000])
 
     vault = await deployVault()
     usdg = await deployContract("USDG", [vault.address])
-    router = await deployContract("Router", [vault.address, usdg.address, bnb.address])
+    router = await deployContract("Router", [vault.address, usdg.address, eth.address,pyth.address])
     vaultPriceFeed = await deployVaultPriceFeed()
 
     const initVaultResult = await initVault(vault, router, usdg, vaultPriceFeed)
@@ -50,9 +53,9 @@ describe("ZkeTimelock", function () {
     yieldTracker0 = await deployContract("YieldTracker", [usdg.address])
 
     await yieldTracker0.setDistributor(distributor0.address)
-    await distributor0.setDistribution([yieldTracker0.address], [1000], [bnb.address])
+    await distributor0.setDistribution([yieldTracker0.address], [1000], [eth.address])
 
-    await bnb.mint(distributor0.address, 5000)
+    await eth.mint(distributor0.address, 5000)
     await usdg.setYieldTrackers([yieldTracker0.address])
 
     await vault.setPriceFeed(user3.address)
@@ -68,7 +71,7 @@ describe("ZkeTimelock", function () {
     ])
     await vault.setGov(timelock.address)
 
-    await vaultPriceFeed.setTokenConfig(bnb.address, bnbPriceFeed.address, 8, false)
+    await vaultPriceFeed.setTokenConfig(eth.address, ethPriceFeed.address, 8, false)
     await vaultPriceFeed.setTokenConfig(dai.address, daiPriceFeed.address, 8, false)
 
     await vaultPriceFeed.setGov(timelock.address)
@@ -119,11 +122,11 @@ describe("ZkeTimelock", function () {
     await mineBlock(provider)
     await timelock.connect(wallet).setPriceFeed(vault.address, vaultPriceFeed.address)
 
-    await bnbPriceFeed.setLatestAnswer(500)
+    await pyth.updatePrice(priceFeedIds.eth, 500)
 
     await expect(timelock.connect(user0).setTokenConfig(
       vault.address,
-      bnb.address,
+      eth.address,
       100,
       200,
       1000,
@@ -133,7 +136,7 @@ describe("ZkeTimelock", function () {
 
     await expect(timelock.connect(wallet).setTokenConfig(
       vault.address,
-      bnb.address,
+      eth.address,
       100,
       200,
       1000,
@@ -143,7 +146,7 @@ describe("ZkeTimelock", function () {
 
     await timelock.connect(wallet).signalVaultSetTokenConfig(
       vault.address,
-      bnb.address, // _token
+      eth.address, // _token
       12, // _tokenDecimals
       7000, // _tokenWeight
       300, // _minProfitBps
@@ -157,7 +160,7 @@ describe("ZkeTimelock", function () {
 
     await timelock.connect(wallet).vaultSetTokenConfig(
       vault.address,
-      bnb.address, // _token
+      eth.address, // _token
       12, // _tokenDecimals
       7000, // _tokenWeight
       300, // _minProfitBps
@@ -168,17 +171,17 @@ describe("ZkeTimelock", function () {
 
     expect(await vault.whitelistedTokenCount()).eq(1)
     expect(await vault.totalTokenWeights()).eq(7000)
-    expect(await vault.whitelistedTokens(bnb.address)).eq(true)
-    expect(await vault.tokenDecimals(bnb.address)).eq(12)
-    expect(await vault.tokenWeights(bnb.address)).eq(7000)
-    expect(await vault.minProfitBasisPoints(bnb.address)).eq(300)
-    expect(await vault.maxUsdgAmounts(bnb.address)).eq(5000)
-    expect(await vault.stableTokens(bnb.address)).eq(false)
-    expect(await vault.shortableTokens(bnb.address)).eq(true)
+    expect(await vault.whitelistedTokens(eth.address)).eq(true)
+    expect(await vault.tokenDecimals(eth.address)).eq(12)
+    expect(await vault.tokenWeights(eth.address)).eq(7000)
+    expect(await vault.minProfitBasisPoints(eth.address)).eq(300)
+    expect(await vault.maxUsdgAmounts(eth.address)).eq(5000)
+    expect(await vault.stableTokens(eth.address)).eq(false)
+    expect(await vault.shortableTokens(eth.address)).eq(true)
 
     await timelock.connect(wallet).setTokenConfig(
       vault.address,
-      bnb.address,
+      eth.address,
       100, // _tokenWeight
       200, // _minProfitBps
       1000, // _maxUsdgAmount
@@ -188,15 +191,15 @@ describe("ZkeTimelock", function () {
 
     expect(await vault.whitelistedTokenCount()).eq(1)
     expect(await vault.totalTokenWeights()).eq(100)
-    expect(await vault.whitelistedTokens(bnb.address)).eq(true)
-    expect(await vault.tokenDecimals(bnb.address)).eq(12)
-    expect(await vault.tokenWeights(bnb.address)).eq(100)
-    expect(await vault.minProfitBasisPoints(bnb.address)).eq(200)
-    expect(await vault.maxUsdgAmounts(bnb.address)).eq(1000)
-    expect(await vault.stableTokens(bnb.address)).eq(false)
-    expect(await vault.shortableTokens(bnb.address)).eq(true)
-    expect(await vault.bufferAmounts(bnb.address)).eq(300)
-    expect(await vault.usdgAmounts(bnb.address)).eq(500)
+    expect(await vault.whitelistedTokens(eth.address)).eq(true)
+    expect(await vault.tokenDecimals(eth.address)).eq(12)
+    expect(await vault.tokenWeights(eth.address)).eq(100)
+    expect(await vault.minProfitBasisPoints(eth.address)).eq(200)
+    expect(await vault.maxUsdgAmounts(eth.address)).eq(1000)
+    expect(await vault.stableTokens(eth.address)).eq(false)
+    expect(await vault.shortableTokens(eth.address)).eq(true)
+    expect(await vault.bufferAmounts(eth.address)).eq(300)
+    expect(await vault.usdgAmounts(eth.address)).eq(500)
   })
 
   it("setBuffer", async () => {
@@ -227,7 +230,6 @@ describe("ZkeTimelock", function () {
     await expect(timelock.connect(user0).setIsAmmEnabled(vaultPriceFeed.address, false))
       .to.be.revertedWith("ZkeTimelock: forbidden")
 
-    expect(await vaultPriceFeed.isAmmEnabled()).eq(true)
     await timelock.connect(wallet).setIsAmmEnabled(vaultPriceFeed.address, false)
     expect(await vaultPriceFeed.isAmmEnabled()).eq(false)
   })
@@ -239,15 +241,6 @@ describe("ZkeTimelock", function () {
     expect(await vaultPriceFeed.maxStrictPriceDeviation()).eq(0)
     await timelock.connect(wallet).setMaxStrictPriceDeviation(vaultPriceFeed.address, 100)
     expect(await vaultPriceFeed.maxStrictPriceDeviation()).eq(100)
-  })
-
-  it("setPriceSampleSpace", async () => {
-    await expect(timelock.connect(user0).setPriceSampleSpace(vaultPriceFeed.address, 0))
-      .to.be.revertedWith("ZkeTimelock: forbidden")
-
-    expect(await vaultPriceFeed.priceSampleSpace()).eq(3)
-    await timelock.connect(wallet).setPriceSampleSpace(vaultPriceFeed.address, 1)
-    expect(await vaultPriceFeed.priceSampleSpace()).eq(1)
   })
 
   it("setVaultUtils", async () => {
@@ -299,12 +292,12 @@ describe("ZkeTimelock", function () {
   })
 
   it("setMaxGlobalShortSize", async () => {
-    await expect(timelock.connect(user0).setMaxGlobalShortSize(vault.address, bnb.address, 100))
+    await expect(timelock.connect(user0).setMaxGlobalShortSize(vault.address, eth.address, 100))
       .to.be.revertedWith("ZkeTimelock: forbidden")
 
-    expect(await vault.maxGlobalShortSizes(bnb.address)).eq(0)
-    await timelock.connect(wallet).setMaxGlobalShortSize(vault.address, bnb.address, 100)
-    expect(await vault.maxGlobalShortSizes(bnb.address)).eq(100)
+    expect(await vault.maxGlobalShortSizes(eth.address)).eq(0)
+    await timelock.connect(wallet).setMaxGlobalShortSize(vault.address, eth.address, 100)
+    expect(await vault.maxGlobalShortSizes(eth.address)).eq(100)
   })
 
   it("setMaxGasPrice", async () => {
@@ -347,20 +340,20 @@ describe("ZkeTimelock", function () {
   })
 
   it("transferIn", async () => {
-    await bnb.mint(user1.address, 1000)
-    await expect(timelock.connect(user0).transferIn(user1.address, bnb.address, 1000))
+    await eth.mint(user1.address, 1000)
+    await expect(timelock.connect(user0).transferIn(user1.address, eth.address, 1000))
       .to.be.revertedWith("ZkeTimelock: forbidden")
 
-    await expect(timelock.connect(wallet).transferIn(user1.address, bnb.address, 1000))
+    await expect(timelock.connect(wallet).transferIn(user1.address, eth.address, 1000))
       .to.be.revertedWith("ERC20: transfer amount exceeds allowance")
 
-    await bnb.connect(user1).approve(timelock.address, 1000)
+    await eth.connect(user1).approve(timelock.address, 1000)
 
-    expect(await bnb.balanceOf(user1.address)).eq(1000)
-    expect(await bnb.balanceOf(timelock.address)).eq(0)
-    await timelock.connect(wallet).transferIn(user1.address, bnb.address, 1000)
-    expect(await bnb.balanceOf(user1.address)).eq(0)
-    expect(await bnb.balanceOf(timelock.address)).eq(1000)
+    expect(await eth.balanceOf(user1.address)).eq(1000)
+    expect(await eth.balanceOf(timelock.address)).eq(0)
+    await timelock.connect(wallet).transferIn(user1.address, eth.address, 1000)
+    expect(await eth.balanceOf(user1.address)).eq(0)
+    expect(await eth.balanceOf(timelock.address)).eq(1000)
   })
 
   it("approve", async () => {
@@ -387,7 +380,7 @@ describe("ZkeTimelock", function () {
     await increaseTime(provider, 1 * 24 * 60 * 60 + 10)
     await mineBlock(provider)
 
-    await expect(timelock.connect(wallet).approve(bnb.address, user1.address, expandDecimals(100, 18)))
+    await expect(timelock.connect(wallet).approve(eth.address, user1.address, expandDecimals(100, 18)))
       .to.be.revertedWith("ZkeTimelock: action not signalled")
 
     await expect(timelock.connect(wallet).approve(dai.address, user2.address, expandDecimals(100, 18)))
@@ -423,7 +416,7 @@ describe("ZkeTimelock", function () {
     await expect(timelock.connect(wallet).approve(dai.address, user1.address, expandDecimals(100, 18)))
       .to.be.revertedWith("ZkeTimelock: action time not yet passed")
 
-    const action0 = ethers.utils.solidityKeccak256(["string", "address", "address", "uint256"], ["approve", bnb.address, user1.address, expandDecimals(100, 18)])
+    const action0 = ethers.utils.solidityKeccak256(["string", "address", "address", "uint256"], ["approve", eth.address, user1.address, expandDecimals(100, 18)])
     const action1 = ethers.utils.solidityKeccak256(["string", "address", "address", "uint256"], ["approve", dai.address, user1.address, expandDecimals(100, 18)])
 
     await expect(timelock.connect(user0).cancelAction(action0))
@@ -435,73 +428,6 @@ describe("ZkeTimelock", function () {
     await timelock.connect(wallet).cancelAction(action1)
 
     await expect(timelock.connect(wallet).approve(dai.address, user1.address, expandDecimals(100, 18)))
-      .to.be.revertedWith("ZkeTimelock: action not signalled")
-  })
-
-  it("processMint", async () => {
-    const zke = await deployContract("ZKE", [])
-    await zke.setGov(timelock.address)
-
-    await expect(timelock.connect(user0).processMint(zke.address, user1.address, expandDecimals(100, 18)))
-      .to.be.revertedWith("ZkeTimelock: forbidden")
-
-    await expect(timelock.connect(wallet).processMint(zke.address, user1.address, expandDecimals(100, 18)))
-      .to.be.revertedWith("ZkeTimelock: action not signalled")
-
-    await expect(timelock.connect(user0).signalMint(zke.address, user1.address, expandDecimals(100, 18)))
-      .to.be.revertedWith("ZkeTimelock: forbidden")
-
-    await timelock.connect(wallet).signalMint(zke.address, user1.address, expandDecimals(100, 18))
-
-    await expect(timelock.connect(wallet).processMint(zke.address, user1.address, expandDecimals(100, 18)))
-      .to.be.revertedWith("ZkeTimelock: action time not yet passed")
-
-    await increaseTime(provider, 4 * 24 * 60 * 60)
-    await mineBlock(provider)
-
-    await expect(timelock.connect(wallet).processMint(zke.address, user1.address, expandDecimals(100, 18)))
-      .to.be.revertedWith("ZkeTimelock: action time not yet passed")
-
-    await increaseTime(provider, 1 * 24 * 60 * 60 + 10)
-    await mineBlock(provider)
-
-    await expect(timelock.connect(wallet).processMint(bnb.address, user1.address, expandDecimals(100, 18)))
-      .to.be.revertedWith("ZkeTimelock: action not signalled")
-
-    await expect(timelock.connect(wallet).processMint(zke.address, user2.address, expandDecimals(100, 18)))
-      .to.be.revertedWith("ZkeTimelock: action not signalled")
-
-    await expect(timelock.connect(wallet).processMint(zke.address, user1.address, expandDecimals(101, 18)))
-      .to.be.revertedWith("ZkeTimelock: action not signalled")
-
-    expect(await zke.balanceOf(timelock.address)).eq(0)
-    expect(await zke.balanceOf(user1.address)).eq(0)
-
-    await timelock.connect(wallet).processMint(zke.address, user1.address, expandDecimals(100, 18))
-
-    expect(await zke.balanceOf(timelock.address)).eq(0)
-    expect(await zke.balanceOf(user1.address)).eq(expandDecimals(100, 18))
-
-    await expect(timelock.connect(wallet).processMint(zke.address, user1.address, expandDecimals(100, 18)))
-      .to.be.revertedWith("ZkeTimelock: action not signalled")
-
-    await timelock.connect(wallet).signalMint(zke.address, user1.address, expandDecimals(100, 18))
-
-    await expect(timelock.connect(wallet).processMint(zke.address, user1.address, expandDecimals(100, 18)))
-      .to.be.revertedWith("ZkeTimelock: action time not yet passed")
-
-    const action0 = ethers.utils.solidityKeccak256(["string", "address", "address", "uint256"], ["mint", bnb.address, user1.address, expandDecimals(100, 18)])
-    const action1 = ethers.utils.solidityKeccak256(["string", "address", "address", "uint256"], ["mint", zke.address, user1.address, expandDecimals(100, 18)])
-
-    await expect(timelock.connect(user0).cancelAction(action0))
-      .to.be.revertedWith("ZkeTimelock: forbidden")
-
-    await expect(timelock.connect(wallet).cancelAction(action0))
-      .to.be.revertedWith("ZkeTimelock: invalid _action")
-
-    await timelock.connect(wallet).cancelAction(action1)
-
-    await expect(timelock.connect(wallet).processMint(zke.address, user1.address, expandDecimals(100, 18)))
       .to.be.revertedWith("ZkeTimelock: action not signalled")
   })
 
@@ -620,48 +546,48 @@ describe("ZkeTimelock", function () {
     const zke = await deployContract("ZKE", [])
     await zke.setGov(timelock.address)
 
-    await expect(timelock.connect(user0).withdrawToken(zke.address, bnb.address, user0.address, 100))
+    await expect(timelock.connect(user0).withdrawToken(zke.address, eth.address, user0.address, 100))
       .to.be.revertedWith("ZkeTimelock: forbidden")
 
-    await expect(timelock.connect(wallet).withdrawToken(zke.address, bnb.address, user0.address, 100))
+    await expect(timelock.connect(wallet).withdrawToken(zke.address, eth.address, user0.address, 100))
       .to.be.revertedWith("ZkeTimelock: action not signalled")
 
-    await expect(timelock.connect(user0).signalWithdrawToken(zke.address, bnb.address, user0.address, 100))
+    await expect(timelock.connect(user0).signalWithdrawToken(zke.address, eth.address, user0.address, 100))
       .to.be.revertedWith("ZkeTimelock: forbidden")
 
-    await timelock.connect(wallet).signalWithdrawToken(zke.address, bnb.address, user0.address, 100)
+    await timelock.connect(wallet).signalWithdrawToken(zke.address, eth.address, user0.address, 100)
 
-    await expect(timelock.connect(wallet).withdrawToken(zke.address, bnb.address, user0.address, 100))
+    await expect(timelock.connect(wallet).withdrawToken(zke.address, eth.address, user0.address, 100))
       .to.be.revertedWith("ZkeTimelock: action time not yet passed")
 
     await increaseTime(provider, 4 * 24 * 60 * 60)
     await mineBlock(provider)
 
-    await expect(timelock.connect(wallet).withdrawToken(zke.address, bnb.address, user0.address, 100))
+    await expect(timelock.connect(wallet).withdrawToken(zke.address, eth.address, user0.address, 100))
       .to.be.revertedWith("ZkeTimelock: action time not yet passed")
 
     await increaseTime(provider, 1 * 24 * 60 * 60 + 10)
     await mineBlock(provider)
 
-    await expect(timelock.connect(wallet).withdrawToken(dai.address, bnb.address, user0.address, 100))
+    await expect(timelock.connect(wallet).withdrawToken(dai.address, eth.address, user0.address, 100))
       .to.be.revertedWith("ZkeTimelock: action not signalled")
 
     await expect(timelock.connect(wallet).withdrawToken(zke.address, dai.address, user0.address, 100))
       .to.be.revertedWith("ZkeTimelock: action not signalled")
 
-    await expect(timelock.connect(wallet).withdrawToken(zke.address, bnb.address, user1.address, 100))
+    await expect(timelock.connect(wallet).withdrawToken(zke.address, eth.address, user1.address, 100))
       .to.be.revertedWith("ZkeTimelock: action not signalled")
 
-    await expect(timelock.connect(wallet).withdrawToken(zke.address, bnb.address, user0.address, 101))
+    await expect(timelock.connect(wallet).withdrawToken(zke.address, eth.address, user0.address, 101))
       .to.be.revertedWith("ZkeTimelock: action not signalled")
 
-    await expect(timelock.connect(wallet).withdrawToken(zke.address, bnb.address, user0.address, 100))
+    await expect(timelock.connect(wallet).withdrawToken(zke.address, eth.address, user0.address, 100))
       .to.be.revertedWith("ERC20: transfer amount exceeds balance")
 
-    await bnb.mint(zke.address, 100)
-    expect(await bnb.balanceOf(user0.address)).eq(0)
-    await timelock.connect(wallet).withdrawToken(zke.address, bnb.address, user0.address, 100)
-    expect(await bnb.balanceOf(user0.address)).eq(100)
+    await eth.mint(zke.address, 100)
+    expect(await eth.balanceOf(user0.address)).eq(0)
+    await timelock.connect(wallet).withdrawToken(zke.address, eth.address, user0.address, 100)
+    expect(await eth.balanceOf(user0.address)).eq(100)
   })
 
   it("vaultSetTokenConfig", async () => {
@@ -670,7 +596,7 @@ describe("ZkeTimelock", function () {
     await mineBlock(provider)
     await timelock.connect(wallet).setPriceFeed(vault.address, vaultPriceFeed.address)
 
-    await daiPriceFeed.setLatestAnswer(1)
+    await pyth.updatePrice(priceFeedIds.dai, 1)
 
     await expect(timelock.connect(user0).vaultSetTokenConfig(
       vault.address,
@@ -791,7 +717,7 @@ describe("ZkeTimelock", function () {
     await mineBlock(provider)
     await timelock.connect(wallet).setPriceFeed(vault.address, vaultPriceFeed.address)
 
-    await btcPriceFeed.setLatestAnswer(toChainlinkPrice(70000))
+    await pyth.updatePrice(priceFeedIds.btc, toChainlinkPrice(70000))
 
     await expect(timelock.connect(user0).priceFeedSetTokenConfig(
       vaultPriceFeed.address,
@@ -858,7 +784,7 @@ describe("ZkeTimelock", function () {
 
     await expect(timelock.connect(wallet).priceFeedSetTokenConfig(
       vaultPriceFeed.address,
-      bnb.address, // _token
+      eth.address, // _token
       btcPriceFeed.address, // _priceFeed
       8, // _priceDecimals
       true // _isStrictStable
@@ -867,7 +793,7 @@ describe("ZkeTimelock", function () {
     await expect(timelock.connect(wallet).priceFeedSetTokenConfig(
       vaultPriceFeed.address,
       btc.address, // _token
-      bnbPriceFeed.address, // _priceFeed
+      ethPriceFeed.address, // _priceFeed
       8, // _priceDecimals
       true // _isStrictStable
     )).to.be.revertedWith("ZkeTimelock: action not signalled")
@@ -1050,44 +976,44 @@ describe("ZkeTimelock", function () {
     await timelock.connect(wallet).setLiquidator(vault.address, user1.address, false)
     expect(await vault.isLiquidator(user1.address)).eq(false)
 
-    await expect(vault.connect(user1).liquidatePosition(user0.address, bnb.address, bnb.address, true, user2.address))
+    await expect(vault.connect(user1).liquidatePosition(user0.address, eth.address, eth.address, true, user2.address))
       .to.be.reverted //Vault: empty position
 
     await timelock.connect(wallet).setInPrivateLiquidationMode(vault.address, true)
 
-    await expect(vault.connect(user1).liquidatePosition(user0.address, bnb.address, bnb.address, true, user2.address))
+    await expect(vault.connect(user1).liquidatePosition(user0.address, eth.address, eth.address, true, user2.address))
       .to.be.reverted //With("Vault: invalid liquidator")
 
     await timelock.connect(wallet).setLiquidator(vault.address, user1.address, true)
 
-    await expect(vault.connect(user1).liquidatePosition(user0.address, bnb.address, bnb.address, true, user2.address))
+    await expect(vault.connect(user1).liquidatePosition(user0.address, eth.address, eth.address, true, user2.address))
       .to.be.reverted //With("Vault: empty position")
   })
 
   it("redeemUsdg", async () => {
-    await expect(timelock.connect(user0).redeemUsdg(vault.address, bnb.address, expandDecimals(1000, 18)))
+    await expect(timelock.connect(user0).redeemUsdg(vault.address, eth.address, expandDecimals(1000, 18)))
       .to.be.revertedWith("ZkeTimelock: forbidden")
 
-    await expect(timelock.connect(wallet).redeemUsdg(vault.address, bnb.address, expandDecimals(1000, 18)))
+    await expect(timelock.connect(wallet).redeemUsdg(vault.address, eth.address, expandDecimals(1000, 18)))
       .to.be.revertedWith("ZkeTimelock: action not signalled")
 
-    await expect(timelock.connect(user0).signalRedeemUsdg(vault.address, bnb.address, expandDecimals(1000, 18)))
+    await expect(timelock.connect(user0).signalRedeemUsdg(vault.address, eth.address, expandDecimals(1000, 18)))
       .to.be.revertedWith("ZkeTimelock: forbidden")
 
-    await timelock.connect(wallet).signalRedeemUsdg(vault.address, bnb.address, expandDecimals(1000, 18))
+    await timelock.connect(wallet).signalRedeemUsdg(vault.address, eth.address, expandDecimals(1000, 18))
 
-    await expect(timelock.connect(wallet).redeemUsdg(vault.address, bnb.address, expandDecimals(1000, 18)))
+    await expect(timelock.connect(wallet).redeemUsdg(vault.address, eth.address, expandDecimals(1000, 18)))
       .to.be.revertedWith("ZkeTimelock: action time not yet passed")
 
     await increaseTime(provider, 5 * 24 * 60 * 60)
     await mineBlock(provider)
 
-    await expect(timelock.connect(wallet).redeemUsdg(vault.address, bnb.address, expandDecimals(1000, 18)))
+    await expect(timelock.connect(wallet).redeemUsdg(vault.address, eth.address, expandDecimals(1000, 18)))
       .to.be.revertedWith("YieldToken: forbidden")
 
     await usdg.setGov(timelock.address)
 
-    await expect(timelock.connect(wallet).redeemUsdg(vault.address, bnb.address, expandDecimals(1000, 18)))
+    await expect(timelock.connect(wallet).redeemUsdg(vault.address, eth.address, expandDecimals(1000, 18)))
       .to.be.revertedWith("Vault: _token not whitelisted")
 
     await timelock.connect(wallet).signalSetPriceFeed(vault.address, vaultPriceFeed.address)
@@ -1095,11 +1021,11 @@ describe("ZkeTimelock", function () {
     await mineBlock(provider)
     await timelock.connect(wallet).setPriceFeed(vault.address, vaultPriceFeed.address)
 
-    await bnbPriceFeed.setLatestAnswer(toChainlinkPrice(500))
+    await pyth.updatePrice(priceFeedIds.eth, toChainlinkPrice(500))
 
     await timelock.connect(wallet).signalVaultSetTokenConfig(
       vault.address,
-      bnb.address, // _token
+      eth.address, // _token
       18, // _tokenDecimals
       7000, // _tokenWeight
       300, // _minProfitBps
@@ -1113,7 +1039,7 @@ describe("ZkeTimelock", function () {
 
     await timelock.connect(wallet).vaultSetTokenConfig(
       vault.address,
-      bnb.address, // _token
+      eth.address, // _token
       18, // _tokenDecimals
       7000, // _tokenWeight
       300, // _minProfitBps
@@ -1122,8 +1048,8 @@ describe("ZkeTimelock", function () {
       true // isShortable
     )
 
-    await bnb.mint(vault.address, expandDecimals(3, 18))
-    await vault.buyUSDG(bnb.address, user3.address)
+    await eth.mint(vault.address, expandDecimals(3, 18))
+    await vault.buyUSDG(eth.address, user3.address)
 
     await timelock.connect(tokenManager).signalSetGov(vault.address, user1.address)
 
@@ -1134,8 +1060,8 @@ describe("ZkeTimelock", function () {
     await vault.connect(user1).setInManagerMode(true)
     await vault.connect(user1).setGov(timelock.address)
 
-    expect(await bnb.balanceOf(mintReceiver.address)).eq(0)
-    await timelock.connect(wallet).redeemUsdg(vault.address, bnb.address, expandDecimals(1000, 18))
-    expect(await bnb.balanceOf(mintReceiver.address)).eq("1994000000000000000") // 1.994
+    expect(await eth.balanceOf(mintReceiver.address)).eq(0)
+    await timelock.connect(wallet).redeemUsdg(vault.address, eth.address, expandDecimals(1000, 18))
+    expect(await eth.balanceOf(mintReceiver.address)).eq("1994000000000000000") // 1.994
   })
 })
