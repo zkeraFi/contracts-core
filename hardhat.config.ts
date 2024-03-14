@@ -14,6 +14,11 @@ const config: HardhatUserConfig = {
     hardhat: {
       zksync: false, // enables zksync in hardhat local network
       allowUnlimitedContractSize: true,
+      gas:5000000,
+      blockGasLimit:20000000,
+      accounts:{
+        accountsBalance:"1000000000000000000000000"
+      }
     },
     zkMainnet: {
       url: "https://mainnet.era.zksync.io",

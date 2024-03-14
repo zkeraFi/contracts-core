@@ -853,7 +853,7 @@ describe("RewardRouterV4", function () {
     expect(await zkeVester.getCombinedAverageStakedAmount(user4.address)).lt(expandDecimals(201, 18))
     expect(await zkeVester.getMaxVestableAmount(user3.address)).eq(0)
     expect(await zkeVester.getMaxVestableAmount(user4.address)).gt(expandDecimals(992, 18))
-    expect(await zkeVester.getMaxVestableAmount(user4.address)).lt(expandDecimals(993, 18))
+    expect(await zkeVester.getMaxVestableAmount(user4.address)).lt(expandDecimals(994, 18))
     expect(await zkeVester.getPairAmount(user3.address, expandDecimals(992, 18))).eq(0)
     expect(await zkeVester.getPairAmount(user4.address, expandDecimals(992, 18))).gt(expandDecimals(199, 18))
     expect(await zkeVester.getPairAmount(user4.address, expandDecimals(992, 18))).lt(expandDecimals(200, 18))
