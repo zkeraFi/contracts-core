@@ -71,11 +71,18 @@ contract ZkeMultisig is IZkeMultisig, ReentrancyGuard {
         bytes32 action,
         uint256 nonce
     );
+    event SetMinAuthorizations(
+        uint256 minAuthorizations
+    );
     event SignalSetSigner(
         address signer,
         bool isSigner,
         bytes32 action,
         uint256 nonce
+    );
+    event SetSigner(
+        address signer,
+        bool isSigner
     );
     event SignalPendingAction(bytes32 action, uint256 nonce);
     event SignAction(bytes32 action, uint256 nonce);
@@ -367,6 +374,7 @@ contract ZkeMultisig is IZkeMultisig, ReentrancyGuard {
 
         minAuthorizations = _minAuthorizations;
         _clearAction(action, _nonce);
+        emit SetMinAuthorizations(_minAuthorizations);
     }
 
     function signalSetSigner(
@@ -420,6 +428,7 @@ contract ZkeMultisig is IZkeMultisig, ReentrancyGuard {
             isSigner[_signer] = false;
         }
         _clearAction(action, _nonce);
+        emit SetSigner(_signer, _isSigner);
     }
 
     function _setPendingAction(bytes32 _action, uint256 _nonce) private {

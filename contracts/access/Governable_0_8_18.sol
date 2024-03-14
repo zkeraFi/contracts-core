@@ -5,6 +5,8 @@ pragma solidity 0.8.18;
 contract Governable_0_8_18 {
     address public gov;
 
+    event SetGov(address oldGov, address newGov);
+
     constructor() {
         gov = msg.sender;
     }
@@ -15,6 +17,8 @@ contract Governable_0_8_18 {
     }
 
     function setGov(address _gov) external onlyGov {
+        address oldGov = gov;
         gov = _gov;
+        emit SetGov(oldGov, _gov);
     }
 }

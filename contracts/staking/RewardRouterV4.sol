@@ -60,6 +60,8 @@ contract RewardRouterV4 is IRewardRouterV4, ReentrancyGuard, Governable_0_8_18 {
     event StakeDegenLP(address account, uint256 amount);
     event UnstakeDegenLP(address account, uint256 amount);
 
+    event SetPyth(address pyth);
+
     receive() external payable {
         require(msg.sender == weth, "Router: invalid sender");
     }
@@ -122,6 +124,7 @@ contract RewardRouterV4 is IRewardRouterV4, ReentrancyGuard, Governable_0_8_18 {
 
     function setPyth(address _pyth) external onlyGov {
         pyth = IPyth(_pyth);
+        emit SetPyth(_pyth);
     }
 
     // to help users who accidentally send their tokens to this contract

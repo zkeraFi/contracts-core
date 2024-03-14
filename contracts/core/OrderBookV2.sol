@@ -227,6 +227,8 @@ contract OrderBookV2 is ReentrancyGuard, IOrderBook_0_8_18 {
     event UpdateMinExecutionFee(uint256 minExecutionFee);
     event UpdateMinPurchaseTokenAmountUsd(uint256 minPurchaseTokenAmountUsd);
     event UpdateGov(address gov);
+    event SetHandler(address handler, bool isHandler);
+    event SetPyth(address pyth);
 
     modifier onlyGov() {
         require(msg.sender == gov, "OrderBook: forbidden");
@@ -278,10 +280,12 @@ contract OrderBookV2 is ReentrancyGuard, IOrderBook_0_8_18 {
 
     function setPyth(IPyth _pyth) external onlyGov {
         pyth = _pyth;
+        emit SetPyth(address(_pyth));
     }
 
     function setHandler(address _handler, bool _isActive) external onlyGov {
         isHandler[_handler] = _isActive;
+        emit SetHandler(_handler, _isActive);
     }
 
     function setMinExecutionFee(uint256 _minExecutionFee) external onlyGov {

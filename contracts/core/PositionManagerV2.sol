@@ -30,6 +30,8 @@ contract PositionManagerV2 is BasePositionManager_0_8_18 {
     event SetInLegacyMode(bool inLegacyMode);
     event SetShouldValidateIncreaseOrder(bool shouldValidateIncreaseOrder);
 
+    event SetPyth(address pyth);
+
     modifier onlyOrderKeeper() {
         require(isOrderKeeper[msg.sender], "PositionManager: forbidden");
         _;
@@ -60,6 +62,7 @@ contract PositionManagerV2 is BasePositionManager_0_8_18 {
 
     function setPyth(IPyth _pyth) external onlyAdmin {
         pyth = _pyth;
+        emit SetPyth(address(_pyth));
     }
 
     function setOrderKeeper(address _account, bool _isActive) external onlyAdmin {

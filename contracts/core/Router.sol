@@ -30,6 +30,7 @@ contract Router is IRouter {
     mapping (address => mapping (address => bool)) public approvedPlugins;
 
     event Swap(address account, address tokenIn, address tokenOut, uint256 amountIn, uint256 amountOut);
+    event SetPyth(address pyth);
 
     modifier onlyGov() {
         require(msg.sender == gov, "Router: forbidden");
@@ -55,6 +56,7 @@ contract Router is IRouter {
 
     function setPyth(address _pyth) external onlyGov {
         pyth = IPyth_0_6_12(_pyth);
+        emit SetPyth(_pyth);
     }
 
     function addPlugin(address _plugin) external override onlyGov {

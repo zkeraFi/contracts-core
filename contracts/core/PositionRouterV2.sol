@@ -194,6 +194,7 @@ contract PositionRouterV2 is BasePositionManager_0_8_18, IPositionRouter_0_8_18 
         bool success,
         uint256 callbackGasLimit
     );
+    event SetPyth(address pyth);
 
     modifier onlyPositionKeeper() {
         require(isPositionKeeper[msg.sender], "403");
@@ -230,6 +231,7 @@ contract PositionRouterV2 is BasePositionManager_0_8_18, IPositionRouter_0_8_18 
 
     function setPyth(IPyth _pyth) external onlyAdmin {
         pyth = _pyth;
+        emit SetPyth(address(_pyth));
     }
 
     function setPositionKeeper(
