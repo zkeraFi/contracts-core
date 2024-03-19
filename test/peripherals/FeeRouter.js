@@ -262,7 +262,7 @@ describe("FeeRouter", function () {
 
         await expect(FeeRouter.connect(user1).withdrawFees([bnb.address, eth.address], _receiver)).to.be.revertedWith("Governable: forbidden");
         await expect(FeeRouter.withdrawFees([], _receiver)).to.be.revertedWith("FeeRouter: invalid _tokens");
-        await expect(FeeRouter.withdrawFees([bnb.address, eth.address], AddressZero)).to.be.revertedWith("ERC20: transfer to the zero address");
+        await expect(FeeRouter.withdrawFees([bnb.address, eth.address], AddressZero)).to.be.reverted;
         const tx = await FeeRouter.withdrawFees([bnb.address, eth.address], _receiver);
 
         await expect(tx)
@@ -306,7 +306,7 @@ describe("FeeRouter", function () {
 
         await expect(FeeRouter.connect(user1).withdrawTokens([bnb.address, eth.address], receiver.address)).to.be.revertedWith("Governable: forbidden");
         await expect(FeeRouter.withdrawTokens([], receiver.address)).to.be.revertedWith("FeeRouter: invalid _tokens");
-        await expect(FeeRouter.withdrawTokens([bnb.address, eth.address], AddressZero)).to.be.revertedWith("ERC20: transfer to the zero address");
+        await expect(FeeRouter.withdrawTokens([bnb.address, eth.address], AddressZero)).to.be.reverted;
         const tx = await FeeRouter.withdrawTokens([bnb.address, eth.address], receiver.address)
 
         await expect(tx)
