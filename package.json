@@ -14,13 +14,9 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@matterlabs/hardhat-zksync-chai-matchers": "^0.1.1",
-    "@matterlabs/hardhat-zksync-deploy": "^0.6.2",
-    "@matterlabs/hardhat-zksync-solc": "^0.3.14",
-    "@matterlabs/hardhat-zksync-verify": "^0.1.5",
     "@nomicfoundation/hardhat-network-helpers": "^1.0.8",
+    "@nomicfoundation/hardhat-verify": "^2.0.5",
     "@nomiclabs/hardhat-ethers": "^2.0.1",
-    "@nomiclabs/hardhat-etherscan": "^3.0.3",
     "@nomiclabs/hardhat-waffle": "^2.0.1",
     "@typechain/ethers-v5": "^7.0.1",
     "@typechain/hardhat": "^2.3.0",
@@ -31,8 +27,8 @@
     "chai": "^4.3.7",
     "ethereum-waffle": "^3.4.4",
     "ethers": "^5.4.6",
-    "hardhat": "^2.14.0",
-    "hardhat-contract-sizer": "^2.8.0",
+    "hardhat": "2.19.4",
+    "hardhat-contract-sizer": "^2.10.0",
     "mocha": "^10.2.0",
     "node-fetch": "3.2.3",
     "ts-node": "^10.9.1",
@@ -41,14 +37,12 @@
   },
   "dependencies": {
     "@openzeppelin/contracts": "^4.9.2",
-    "@pythnetwork/pyth-evm-js": "^1.17.0",
-    "@pythnetwork/pyth-sdk-solidity": "^2.2.1",
+    "@redstone-finance/evm-connector": "^0.3.6",
     "@uniswap/sdk-core": "^3.0.1",
     "@uniswap/v3-sdk": "^3.8.2",
     "bn.js": "^5.2.0",
     "csv-parse": "^4.16.3",
     "dotenv": "^16.0.3",
-    "hardhat-abi-exporter": "^2.10.1",
-    "solidity-coverage": "^0.8.10"
+    "hardhat-abi-exporter": "^2.10.1"
   }
 }

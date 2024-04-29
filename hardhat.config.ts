@@ -1,46 +1,49 @@
 import { HardhatUserConfig } from "hardhat/config";
 import "hardhat-contract-sizer";
 import "@typechain/hardhat";
-import "@matterlabs/hardhat-zksync-solc";
-import "@matterlabs/hardhat-zksync-verify";
-import "@nomiclabs/hardhat-etherscan";
+import "@nomicfoundation/hardhat-verify";
 import "@nomiclabs/hardhat-ethers";
 import "@nomiclabs/hardhat-waffle";
 import "hardhat-abi-exporter";
-import 'solidity-coverage';
-
+import dotenv from 'dotenv';
+dotenv.config();
+const pk:any = process.env.TESTNET_DEPLOYER_PK;
 const config: HardhatUserConfig = {
+  sourcify: {
+    enabled: true,
+
+  },
+  etherscan:{
+    enabled:false
+  },
   networks: {
+    localhost: {
+      timeout: 120000,
+    },
+    zkDocker: {
+      url: "http://localhost:3050",
+    },
+    zkTeamServer: {
+      url: "http://45.76.38.228:3050",
+    },
+    goerli: {
+      url: "https://eth-goerli.public.blastapi.io",
+      accounts: [pk],
+    },
+    telos: {
+      url: "https://mainnet-eu.telos.net/evm", // public endpoint https://mainnet-eu.telos.net/evm https://mainnet.telos.net:443/evm
+      chainId: 40,
+      accounts: [pk],
+      allowUnlimitedContractSize: true
+    },
+    telosTestnet: {
+      url: "https://testnet.telos.net/evm",
+      accounts: [pk],
+      allowUnlimitedContractSize: true
+    },
     hardhat: {
-      zksync: false, // enables zksync in hardhat local network
       allowUnlimitedContractSize: true,
-      gas:5000000,
-      blockGasLimit:20000000,
-      accounts:{
-        accountsBalance:"1000000000000000000000000"
-      }
     },
-    zkMainnet: {
-      url: "https://mainnet.era.zksync.io",
-      ethNetwork: "https://eth.llamarpc.com",
-      zksync: true,
-      verifyURL:
-        "https://zksync2-mainnet-explorer.zksync.io/contract_verification",
-    },
-    zkSepolia: {
-      url: "https://sepolia.era.zksync.dev",
-      ethNetwork: "https://rpc.ankr.com/eth_sepolia",
-      zksync: true,
-      verifyURL:
-        "https://explorer.sepolia.era.zksync.dev/contract_verification"
-    },
-    zkTestnet: {
-      url: "https://testnet.era.zksync.dev",
-      ethNetwork: "https://eth-goerli.public.blastapi.io",
-      zksync: true,
-      verifyURL:
-        "https://zksync2-testnet-explorer.zksync.dev/contract_verification"
-    }
   },
   solidity: {
     compilers: [
@@ -49,7 +52,7 @@ const config: HardhatUserConfig = {
         settings: {
           optimizer: {
             enabled: true,
-            runs: 10,
+            runs: 10
           },
         },
       },
@@ -58,7 +61,7 @@ const config: HardhatUserConfig = {
         settings: {
           optimizer: {
             enabled: true,
-            runs: 10,
+            runs: 10
           },
         },
       },
@@ -67,7 +70,7 @@ const config: HardhatUserConfig = {
         settings: {
           optimizer: {
             enabled: true,
-            runs: 10,
+            runs: 10
           },
         },
       },
@@ -81,12 +84,15 @@ const config: HardhatUserConfig = {
           viaIR: true
         }
       }
-    ]
+    ],
   },
   typechain: {
     outDir: "typechain",
     target: "ethers-v5",
   },
+  // paths: {
+  //   tests: "./test/core/Vault", // Replace 'my-test-folder' with the name of the folder you prefer
+  // },
   contractSizer: {
     alphaSort: false,
     disambiguatePaths: false,
@@ -97,24 +103,12 @@ const config: HardhatUserConfig = {
     path: "./data/abi",
     runOnCompile: true,
     clear: true,
+    // flat: true,
+    // only: [':RewardRouterV2$'],
     spacing: 2,
-    pretty: false
-  },
-  zksolc: {
-    version: "1.3.8",
-    compilerSource: "binary", // binary or docker (deprecated)
-    settings: {
-      libraries: {
-        "contracts/core/PositionUtils_0_8_18.sol": {
-          PositionUtils_0_8_18: "0x63092e876D3b977c58f936379746B99d350646BC",
-        }
-      },
-      optimizer: {
-        enabled: true, // optional. True by default
-        mode: "z", // optional. 3 by default, z to optimize bytecode size
-      },
-    },
-  },
+    pretty: false,
+    // format: "json",
+  }
 };
 
 export default config;

@@ -6,7 +6,6 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@pythnetwork/pyth-sdk-solidity/IPyth.sol";
 
 import "../tokens/interfaces/IWETH_0_8_18.sol";
 import "./interfaces/IRouter_0_8_18.sol";
@@ -67,7 +66,6 @@ contract OrderBookV2 is ReentrancyGuard, IOrderBook_0_8_18 {
     address public usdg;
     address public router;
     address public vault;
-    IPyth pyth;
     uint256 public minExecutionFee;
     uint256 public minPurchaseTokenAmountUsd;
     bool public isInitialized = false;
@@ -228,7 +226,6 @@ contract OrderBookV2 is ReentrancyGuard, IOrderBook_0_8_18 {
     event UpdateMinPurchaseTokenAmountUsd(uint256 minPurchaseTokenAmountUsd);
     event UpdateGov(address gov);
     event SetHandler(address handler, bool isHandler);
-    event SetPyth(address pyth);
 
     modifier onlyGov() {
         require(msg.sender == gov, "OrderBook: forbidden");
@@ -250,8 +247,7 @@ contract OrderBookV2 is ReentrancyGuard, IOrderBook_0_8_18 {
         address _weth,
         address _usdg,
         uint256 _minExecutionFee,
-        uint256 _minPurchaseTokenAmountUsd,
-        IPyth _pyth
+        uint256 _minPurchaseTokenAmountUsd
     ) external onlyGov {
         require(!isInitialized, "OrderBook: already initialized");
         isInitialized = true;
@@ -262,7 +258,6 @@ contract OrderBookV2 is ReentrancyGuard, IOrderBook_0_8_18 {
         usdg = _usdg;
         minExecutionFee = _minExecutionFee;
         minPurchaseTokenAmountUsd = _minPurchaseTokenAmountUsd;
-        pyth = _pyth;
 
         emit Initialize(
             _router,
@@ -276,11 +271,6 @@ contract OrderBookV2 is ReentrancyGuard, IOrderBook_0_8_18 {
 
     receive() external payable {
         require(msg.sender == weth, "OrderBook: invalid sender");
-    }
-
-    function setPyth(IPyth _pyth) external onlyGov {
-        pyth = _pyth;
-        emit SetPyth(address(_pyth));
     }
 
     function setHandler(address _handler, bool _isActive) external onlyGov {
@@ -566,16 +556,6 @@ contract OrderBookV2 is ReentrancyGuard, IOrderBook_0_8_18 {
         _executeSwapOrder(_account, _orderIndex, _feeReceiver);
     }
 
-    function executeSwapOrder(
-        address _account,
-        uint256 _orderIndex,
-        address payable _feeReceiver,
-        bytes[] calldata priceUpdateData
-    ) external payable override nonReentrant {
-        _updatePrice(priceUpdateData);
-        _executeSwapOrder(_account, _orderIndex, _feeReceiver);
-    }
-
     function _proceedCreateSwapOrder(
         address[] memory _path,
         uint256 _amountIn,
@@ -706,10 +686,9 @@ contract OrderBookV2 is ReentrancyGuard, IOrderBook_0_8_18 {
         bool _triggerAboveThreshold,
         uint256 _executionFee,
         bool _shouldWrap,
-        bytes[] calldata priceUpdateData,
         address _from
     ) internal {
-        uint256 newMsgValue = _updatePrice(priceUpdateData);
+        uint256 newMsgValue = msg.value;
         // always need this call because of mandatory executionFee user has to transfer in ETH
         _transferInETH(newMsgValue);
 
@@ -1003,8 +982,7 @@ contract OrderBookV2 is ReentrancyGuard, IOrderBook_0_8_18 {
         uint256 _triggerPrice,
         bool _triggerAboveThreshold,
         uint256 _executionFee,
-        bool _shouldWrap,
-        bytes[] calldata priceUpdateData
+        bool _shouldWrap
     ) external payable nonReentrant {
         _proceedCreateIncreaseOrder(
             _path,
@@ -1018,7 +996,6 @@ contract OrderBookV2 is ReentrancyGuard, IOrderBook_0_8_18 {
             _triggerAboveThreshold,
             _executionFee,
             _shouldWrap,
-            priceUpdateData,
             msg.sender
         );
     }
@@ -1035,7 +1012,6 @@ contract OrderBookV2 is ReentrancyGuard, IOrderBook_0_8_18 {
         bool _triggerAboveThreshold,
         uint256 _executionFee,
         bool _shouldWrap,
-        bytes[] calldata priceUpdateData,
         address _from
     ) external payable nonReentrant onlyHandler {
         _proceedCreateIncreaseOrder(
@@ -1050,7 +1026,6 @@ contract OrderBookV2 is ReentrancyGuard, IOrderBook_0_8_18 {
             _triggerAboveThreshold,
             _executionFee,
             _shouldWrap,
-            priceUpdateData,
             _from
         );
     }
@@ -1198,18 +1173,8 @@ contract OrderBookV2 is ReentrancyGuard, IOrderBook_0_8_18 {
     function executeIncreaseOrder(
         address _address,
         uint256 _orderIndex,
-        address payable _feeReceiver,
-        bytes[] calldata priceUpdateData
-    ) external payable override nonReentrant onlyHandler {
-        _updatePrice(priceUpdateData);
-        _executeIncreaseOrder(_address, _orderIndex, _feeReceiver);
-    }
-
-    function executeIncreaseOrder(
-        address _address,
-        uint256 _orderIndex,
         address payable _feeReceiver
-    ) external override nonReentrant onlyHandler {
+    ) external override nonReentrant onlyHandler{
         _executeIncreaseOrder(_address, _orderIndex, _feeReceiver);
     }
 
@@ -1355,16 +1320,6 @@ contract OrderBookV2 is ReentrancyGuard, IOrderBook_0_8_18 {
             _triggerAboveThreshold,
             msgValue
         );
-    }
-
-    function executeDecreaseOrder(
-        address _address,
-        uint256 _orderIndex,
-        address payable _feeReceiver,
-        bytes[] calldata priceUpdateData
-    ) external payable override nonReentrant onlyHandler{
-        _updatePrice(priceUpdateData);
-        _executeDecreaseOrder(_address, _orderIndex, _feeReceiver);
     }
 
     function executeDecreaseOrder(
@@ -1535,14 +1490,5 @@ contract OrderBookV2 is ReentrancyGuard, IOrderBook_0_8_18 {
 
         require(amountOut >= _minOut, "OrderBook: insufficient amountOut");
         return amountOut;
-    }
-
-    function _updatePrice(
-        bytes[] calldata priceUpdateData
-    ) private returns (uint256) {
-        uint256 fee = pyth.getUpdateFee(priceUpdateData);
-        require(msg.value >= fee, "OrderBookV2: use correct price update fee");
-        pyth.updatePriceFeeds{value: fee}(priceUpdateData);
-        return msg.value - fee;
     }
 }

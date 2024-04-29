@@ -9,6 +9,3 @@ Install packages:
 
 ## Compile Contracts
 `npx hardhat compile`
-
-## Run Tests
-`npx hardhat test`

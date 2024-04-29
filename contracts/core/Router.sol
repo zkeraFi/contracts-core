@@ -10,8 +10,6 @@ import "../libraries/utils/Address.sol";
 import "../tokens/interfaces/IWETH.sol";
 import "./interfaces/IVault.sol";
 import "./interfaces/IRouter.sol";
-import "../oracle/interfaces/IPyth_0_6_12.sol";
-
 
 contract Router is IRouter {
     using SafeMath for uint256;
@@ -24,24 +22,21 @@ contract Router is IRouter {
     address public weth;
     address public usdg;
     address public vault;
-    IPyth_0_6_12 public pyth;
 
     mapping (address => bool) public plugins;
     mapping (address => mapping (address => bool)) public approvedPlugins;
 
     event Swap(address account, address tokenIn, address tokenOut, uint256 amountIn, uint256 amountOut);
-    event SetPyth(address pyth);
 
     modifier onlyGov() {
         require(msg.sender == gov, "Router: forbidden");
         _;
     }
 
-    constructor(address _vault, address _usdg, address _weth, address _pyth) public {
+    constructor(address _vault, address _usdg, address _weth) public {
         vault = _vault;
         usdg = _usdg;
         weth = _weth;
-        pyth = IPyth_0_6_12(_pyth);
 
         gov = msg.sender;
     }
@@ -52,11 +47,6 @@ contract Router is IRouter {
 
     function setGov(address _gov) external onlyGov {
         gov = _gov;
-    }
-
-    function setPyth(address _pyth) external onlyGov {
-        pyth = IPyth_0_6_12(_pyth);
-        emit SetPyth(_pyth);
     }
 
     function addPlugin(address _plugin) external override onlyGov {
@@ -95,25 +85,22 @@ contract Router is IRouter {
         IVault(vault).directPoolDeposit(_token);
     }
 
-    function swap(address[] memory _path, uint256 _amountIn, uint256 _minOut, address _receiver, bytes[] calldata priceUpdateData) public payable override {
-        _updatePrice(priceUpdateData);
-
+    function swap(address[] memory _path, uint256 _amountIn, uint256 _minOut, address _receiver) public override{
         IERC20(_path[0]).safeTransferFrom(_sender(), vault, _amountIn);
         uint256 amountOut = _swap(_path, _minOut, _receiver);
         emit Swap(msg.sender, _path[0], _path[_path.length - 1], _amountIn, amountOut);
     }
 
-    function swapETHToTokens(address[] memory _path, uint256 _minOut, address _receiver, bytes[] calldata priceUpdateData) external payable {
+    function swapETHToTokens(address[] memory _path, uint256 _minOut, address _receiver) external payable {
         require(_path[0] == weth, "Router: invalid _path");
-        uint256 newMsgValue = _updatePrice(priceUpdateData);
+        uint256 newMsgValue = msg.value;
         _transferETHToVault(newMsgValue);
         uint256 amountOut = _swap(_path, _minOut, _receiver);
         emit Swap(msg.sender, _path[0], _path[_path.length - 1], newMsgValue, amountOut);
     }
 
-    function swapTokensToETH(address[] memory _path, uint256 _amountIn, uint256 _minOut, address payable _receiver, bytes[] calldata priceUpdateData) external payable{
+    function swapTokensToETH(address[] memory _path, uint256 _amountIn, uint256 _minOut, address payable _receiver) external{
         require(_path[_path.length - 1] == weth, "Router: invalid _path");
-        _updatePrice(priceUpdateData);
 
         IERC20(_path[0]).safeTransferFrom(_sender(), vault, _amountIn);
         uint256 amountOut = _swap(_path, _minOut, address(this));
@@ -121,8 +108,7 @@ contract Router is IRouter {
         emit Swap(msg.sender, _path[0], _path[_path.length - 1], _amountIn, amountOut);
     }
 
-    function increasePosition(address[] memory _path, address _indexToken, uint256 _amountIn, uint256 _minOut, uint256 _sizeDelta, bool _isLong, uint256 _price, bytes[] calldata priceUpdateData) external {
-        _updatePrice(priceUpdateData);
+    function increasePosition(address[] memory _path, address _indexToken, uint256 _amountIn, uint256 _minOut, uint256 _sizeDelta, bool _isLong, uint256 _price) external {
         if (_amountIn > 0) {
             IERC20(_path[0]).safeTransferFrom(_sender(), vault, _amountIn);
         }
@@ -133,9 +119,9 @@ contract Router is IRouter {
         _increasePosition(_path[_path.length - 1], _indexToken, _sizeDelta, _isLong, _price);
     }
 
-    function increasePositionETH(address[] memory _path, address _indexToken, uint256 _minOut, uint256 _sizeDelta, bool _isLong, uint256 _price, bytes[] calldata priceUpdateData) external payable {
+    function increasePositionETH(address[] memory _path, address _indexToken, uint256 _minOut, uint256 _sizeDelta, bool _isLong, uint256 _price) external payable {
         require(_path[0] == weth, "Router: invalid _path");
-        uint256 newMsgValue = _updatePrice(priceUpdateData);
+        uint256 newMsgValue = msg.value;
         if (newMsgValue > 0) {
             _transferETHToVault(newMsgValue);
         }
@@ -146,27 +132,23 @@ contract Router is IRouter {
         _increasePosition(_path[_path.length - 1], _indexToken, _sizeDelta, _isLong, _price);
     }
 
-    function decreasePosition(address _collateralToken, address _indexToken, uint256 _collateralDelta, uint256 _sizeDelta, bool _isLong, address _receiver, uint256 _price, bytes[] calldata priceUpdateData) external payable{
-        _updatePrice(priceUpdateData);
+    function decreasePosition(address _collateralToken, address _indexToken, uint256 _collateralDelta, uint256 _sizeDelta, bool _isLong, address _receiver, uint256 _price) external{
         _decreasePosition(_collateralToken, _indexToken, _collateralDelta, _sizeDelta, _isLong, _receiver, _price);
     }
 
-    function decreasePositionETH(address _collateralToken, address _indexToken, uint256 _collateralDelta, uint256 _sizeDelta, bool _isLong, address payable _receiver, uint256 _price, bytes[] calldata priceUpdateData) external payable{
-        _updatePrice(priceUpdateData);
+    function decreasePositionETH(address _collateralToken, address _indexToken, uint256 _collateralDelta, uint256 _sizeDelta, bool _isLong, address payable _receiver, uint256 _price) external{
         uint256 amountOut = _decreasePosition(_collateralToken, _indexToken, _collateralDelta, _sizeDelta, _isLong, address(this), _price);
         _transferOutETH(amountOut, _receiver);
     }
 
-    function decreasePositionAndSwap(address[] memory _path, address _indexToken, uint256 _collateralDelta, uint256 _sizeDelta, bool _isLong, address _receiver, uint256 _price, uint256 _minOut, bytes[] calldata priceUpdateData) external payable{
-        _updatePrice(priceUpdateData);
+    function decreasePositionAndSwap(address[] memory _path, address _indexToken, uint256 _collateralDelta, uint256 _sizeDelta, bool _isLong, address _receiver, uint256 _price, uint256 _minOut) external{
         uint256 amount = _decreasePosition(_path[0], _indexToken, _collateralDelta, _sizeDelta, _isLong, address(this), _price);
         IERC20(_path[0]).safeTransfer(vault, amount);
         _swap(_path, _minOut, _receiver);
     }
 
-    function decreasePositionAndSwapETH(address[] memory _path, address _indexToken, uint256 _collateralDelta, uint256 _sizeDelta, bool _isLong, address payable _receiver, uint256 _price, uint256 _minOut, bytes[] calldata priceUpdateData) external payable{
+    function decreasePositionAndSwapETH(address[] memory _path, address _indexToken, uint256 _collateralDelta, uint256 _sizeDelta, bool _isLong, address payable _receiver, uint256 _price, uint256 _minOut) external{
         require(_path[_path.length - 1] == weth, "Router: invalid _path");
-        _updatePrice(priceUpdateData);
         uint256 amount = _decreasePosition(_path[0], _indexToken, _collateralDelta, _sizeDelta, _isLong, address(this), _price);
         IERC20(_path[0]).safeTransfer(vault, amount);
         uint256 amountOut = _swap(_path, _minOut, address(this));
@@ -238,12 +220,5 @@ contract Router is IRouter {
     function _validatePlugin(address _account) private view {
         require(plugins[msg.sender], "Router: invalid plugin");
         require(approvedPlugins[_account][msg.sender], "Router: plugin not approved");
-    }
-
-    function _updatePrice(bytes[] calldata priceUpdateData) private returns(uint256) {
-        uint256 fee = pyth.getUpdateFee(priceUpdateData);
-        require(msg.value >= fee, "Router: use correct price update fee");
-        pyth.updatePriceFeeds{ value: fee }(priceUpdateData);
-        return msg.value - fee;
     }
 }

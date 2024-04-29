@@ -1,9 +1,12 @@
 import * as hre from 'hardhat';
 import { ethers } from 'ethers';
-import { Deployer } from '@matterlabs/hardhat-zksync-deploy';
+import { NetworkConfig } from 'hardhat/types';
 import { getDeployerWallet, getRichWallets } from '../shared/accounts';
 import { getProvider } from '../shared/network';
-import { deployContract } from '../shared/deploy';
+import { deployContract, getJsonField, sendTxn } from '../shared/deploy';
+import { BlockInfoProxy__factory, BlockInfoDefault__factory, Vault__factory, VaultPriceFeed__factory, ZLP__factory, USDG__factory, VaultErrorController__factory, ZlpManager__factory, ShortsTracker__factory, Router__factory } from '../../typechain';
+import { expandDecimals } from '../shared/utilities';
+import { errors } from '../shared/helpers';
 import { getNetworkConfig } from '../shared/zkEraConfig';
 
 
@@ -16,18 +19,17 @@ function toUsd(value: number): ethers.BigNumber {
 
 export async function main() {
     const provider = getProvider();
-    // const [wallet, user0, user1, user2, user3] = getRichWallets(provider);
-    const deployerWallet = getDeployerWallet(provider);
-    const deployer = new Deployer(hre, deployerWallet);
-
     const config = getNetworkConfig();
 
     // const blockInfoProxyAddress = await getJsonField("blockInfoProxy") as string;
     // const blockInfoProxy = BlockInfoProxy__factory.connect(blockInfoProxyAddress, deployerWallet);
-    
-    const WETH =  await deployContract(deployer, "WETH", ["WETH","WETH",18], "weth");
-    const USDC =  await deployContract(deployer, "USDC", [], "usdc");
-    const WBTC =  await deployContract(deployer, "WBTC", [], "wbtc");
+
+    // const WTLOS =  await deployContract("WTLOS", [], "wtlos");
+    // const WETH =  await deployContract("WETH", [], "weth");
+    const usdc =  await deployContract("Token", ["USDC","USDC",6], "usdc")
+    // const USDC =  await deployContract("USDC", [], "usdc");
+    // const WBTC =  await deployContract("WBTC", [], "wbtc");
+    // const PEPE =  await deployContract("PEPE", [], "pepe");
 }
 
  main()

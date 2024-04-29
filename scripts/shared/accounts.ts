@@ -1,6 +1,6 @@
 import * as hre from 'hardhat';
 import { ethers } from 'ethers';
-import { Deployer } from '@matterlabs/hardhat-zksync-deploy';
+ 
 import { Wallet, Contract, utils, Provider } from 'zksync-web3';
 import { NetworkConfig } from 'hardhat/types';
 
@@ -69,8 +69,11 @@ if (!MAINNET_DEPLOYER_PK || !TESTNET_DEPLOYER_PK || !TESTNET_KEEPER_PK || !MAINN
 }
 
 const networksDeployerPk = new Map<string, string>([
+    ["zkDocker", richAccounts[0].privateKey],
+    ["zkTeamServer", richAccounts[0].privateKey],
     ["zkTestnet", TESTNET_DEPLOYER_PK],
     ["zkSepolia", TESTNET_DEPLOYER_PK],
+    ["telosTestnet", TESTNET_DEPLOYER_PK],
     ["zkMainnet", MAINNET_DEPLOYER_PK],
     ["keeper", MAINNET_KEEPER_PK]
 ]);

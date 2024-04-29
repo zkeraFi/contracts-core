@@ -1,6 +1,5 @@
 import * as hre from 'hardhat';
-import { NetworkConfig } from 'hardhat/types';
-import { Provider } from 'zksync-web3';
+import {  NetworkConfig } from 'hardhat/types';
 
 export function getCurrentNetworkURL(): string{
     const network: NetworkConfig = hre.config.networks[hre.network.name] 
@@ -16,8 +15,8 @@ export function getNetworkURL(networkName: string): string{
     return url as string;
 }
 
-export function getProvider(): Provider{
+export function getProvider(): any{
     const currentNetworkUrl = getCurrentNetworkURL();
     console.log("currentNetworkUrl:", currentNetworkUrl)
-    return new Provider(currentNetworkUrl);
+    return hre.ethers.provider;
 }

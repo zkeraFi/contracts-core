@@ -2,24 +2,12 @@ import { BigNumber, ethers } from 'ethers';
 
 const maxUint256 = ethers.constants.MaxUint256;
 
-const decimals:{[index: string]: number} = {
-  "0xBBeB516fb02a01611cBBE0453Fe3c580D7281011": 8
-}
-
-function parseDecToken(token: string, n: string): ethers.BigNumber {
-  return ethers.utils.parseUnits(n, decimals[token]);
-}
-
 function newWallet(): ethers.Wallet {
   return ethers.Wallet.createRandom();
 }
 
 function bigNumberify(n: number | string | BigNumber): ethers.BigNumber {
   return ethers.BigNumber.from(n);
-}
-
-function parseDec(n: string, dec: number): ethers.BigNumber {
-  return ethers.utils.parseUnits(n, dec);
 }
 
 function expandDecimals(n: number | string | BigNumber, decimals: number): ethers.BigNumber {
@@ -160,9 +148,7 @@ export {
   getTxnBalances,
   print,
   getPriceBitArray,
-  getPriceBits,
-  parseDec,
-  parseDecToken
+  getPriceBits
 };
 
 

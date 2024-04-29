@@ -8,8 +8,8 @@ import { deployContract } from "../shared/deploy";
 async function main() {
   const provider = getProvider();
   // const [wallet, user0, user1, user2, user3] = getRichWallets(provider);
-  const deployerWallet = getDeployerWallet(provider);
-  const deployer = new Deployer(hre, deployerWallet);
+  const deployerWallet = hre.ethers.provider.getSigner(0);
+   
 
   const timelock = "0xCb8E330e67b612e1Ef6C7513CC5Da370c1B3879b";
   const vault = "0x20232E8724B7dEb228E788448773A4D3C9FfB684";

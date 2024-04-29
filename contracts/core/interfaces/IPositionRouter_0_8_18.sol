@@ -16,14 +16,12 @@ interface IPositionRouter_0_8_18 {
 
     function executeIncreasePositions(
         uint256 _count,
-        address payable _executionFeeReceiver,
-        bytes[] calldata priceUpdateData
+        address payable _executionFeeReceiver
     ) external payable;
 
     function executeDecreasePositions(
         uint256 _count,
-        address payable _executionFeeReceiver,
-        bytes[] calldata priceUpdateData
+        address payable _executionFeeReceiver
     ) external payable;
 
     function getRequestQueueLengths()

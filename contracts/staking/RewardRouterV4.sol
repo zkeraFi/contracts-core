@@ -6,7 +6,6 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
-import "@pythnetwork/pyth-sdk-solidity/IPyth.sol";
 
 import "./interfaces/IRewardTracker_0_8_18.sol";
 import "./interfaces/IRewardRouterV4.sol";
@@ -49,7 +48,6 @@ contract RewardRouterV4 is IRewardRouterV4, ReentrancyGuard, Governable_0_8_18 {
     address public degenLPVester;
 
     mapping (address => address) public pendingReceivers;
-    IPyth pyth;
 
     event StakeZke(address account, address token, uint256 amount);
     event UnstakeZke(address account, address token, uint256 amount);
@@ -59,8 +57,6 @@ contract RewardRouterV4 is IRewardRouterV4, ReentrancyGuard, Governable_0_8_18 {
 
     event StakeDegenLP(address account, uint256 amount);
     event UnstakeDegenLP(address account, uint256 amount);
-
-    event SetPyth(address pyth);
 
     receive() external payable {
         require(msg.sender == weth, "Router: invalid sender");
@@ -84,8 +80,7 @@ contract RewardRouterV4 is IRewardRouterV4, ReentrancyGuard, Governable_0_8_18 {
         address _feeDegenLPTracker,
         address _stakedDegenLPTracker,
         address _degenLPManager,
-        address _degenLPVester,
-        address _pyth
+        address _degenLPVester
     ) external onlyGov {
         require(!isInitialized, "RewardRouter: already initialized");
         isInitialized = true;
@@ -118,13 +113,6 @@ contract RewardRouterV4 is IRewardRouterV4, ReentrancyGuard, Governable_0_8_18 {
         degenLPManager = _degenLPManager;
 
         degenLPVester = _degenLPVester;
-
-        pyth = IPyth(_pyth);
-    }
-
-    function setPyth(address _pyth) external onlyGov {
-        pyth = IPyth(_pyth);
-        emit SetPyth(_pyth);
     }
 
     // to help users who accidentally send their tokens to this contract
@@ -159,9 +147,8 @@ contract RewardRouterV4 is IRewardRouterV4, ReentrancyGuard, Governable_0_8_18 {
         _unstakeZke(msg.sender, esZke, _amount, true);
     }
 
-    function mintAndStakeZlp(address _token, uint256 _amount, uint256 _minUsdg, uint256 _minZlp, bytes[] calldata priceUpdateData) external payable nonReentrant returns (uint256) {
+    function mintAndStakeZlp(address _token, uint256 _amount, uint256 _minUsdg, uint256 _minZlp) external nonReentrant returns (uint256) {
         require(_amount > 0, "RewardRouter: invalid _amount");
-        _updatePrice(priceUpdateData);
         
         address account = msg.sender;
         uint256 zlpAmount = IZlpManager_0_8_18(zlpManager).addLiquidityForAccount(account, account, _token, _amount, _minUsdg, _minZlp);
@@ -173,9 +160,8 @@ contract RewardRouterV4 is IRewardRouterV4, ReentrancyGuard, Governable_0_8_18 {
         return zlpAmount;
     }
 
-        function mintAndStakeDegenLP(address _token, uint256 _amount, uint256 _minUsdg, uint256 _minDegenLP, bytes[] calldata priceUpdateData) external payable nonReentrant returns (uint256) {
+        function mintAndStakeDegenLP(address _token, uint256 _amount, uint256 _minUsdg, uint256 _minDegenLP) external nonReentrant returns (uint256) {
         require(_amount > 0, "RewardRouter: invalid _amount");
-        _updatePrice(priceUpdateData);
         
         address account = msg.sender;
         uint256 degenLPAmount = IZlpManager_0_8_18(degenLPManager).addLiquidityForAccount(account, account, _token, _amount, _minUsdg, _minDegenLP);
@@ -187,9 +173,9 @@ contract RewardRouterV4 is IRewardRouterV4, ReentrancyGuard, Governable_0_8_18 {
         return degenLPAmount;
     }
 
-    function mintAndStakeZlpETH(uint256 _minUsdg, uint256 _minZlp, bytes[] calldata priceUpdateData) external payable nonReentrant returns (uint256) {
+    function mintAndStakeZlpETH(uint256 _minUsdg, uint256 _minZlp) external payable nonReentrant returns (uint256) {
         require(msg.value > 0, "RewardRouter: invalid msg.value");
-        uint256 newMsgValue = _updatePrice(priceUpdateData);
+        uint256 newMsgValue = msg.value;
 
         IWETH_0_8_18(weth).deposit{value: newMsgValue}();
         IERC20(weth).approve(zlpManager, newMsgValue);
@@ -205,9 +191,8 @@ contract RewardRouterV4 is IRewardRouterV4, ReentrancyGuard, Governable_0_8_18 {
         return zlpAmount;
     }
 
-    function unstakeAndRedeemZlp(address _tokenOut, uint256 _zlpAmount, uint256 _minOut, address _receiver, bytes[] calldata priceUpdateData) external payable nonReentrant returns (uint256) {
+    function unstakeAndRedeemZlp(address _tokenOut, uint256 _zlpAmount, uint256 _minOut, address _receiver) external nonReentrant returns (uint256) {
         require(_zlpAmount > 0, "RewardRouter: invalid _zlpAmount");
-        _updatePrice(priceUpdateData);
 
         address account = msg.sender;
         IRewardTracker_0_8_18(stakedZlpTracker).unstakeForAccount(account, feeZlpTracker, _zlpAmount, account);
@@ -219,9 +204,8 @@ contract RewardRouterV4 is IRewardRouterV4, ReentrancyGuard, Governable_0_8_18 {
         return amountOut;
     }
 
-        function unstakeAndRedeemDegenLP(address _tokenOut, uint256 _degenLPAmount, uint256 _minOut, address _receiver, bytes[] calldata priceUpdateData) external payable nonReentrant returns (uint256) {
+        function unstakeAndRedeemDegenLP(address _tokenOut, uint256 _degenLPAmount, uint256 _minOut, address _receiver) external nonReentrant returns (uint256) {
         require(_degenLPAmount > 0, "RewardRouter: invalid _degenLPAmount");
-        _updatePrice(priceUpdateData);
 
         address account = msg.sender;
         IRewardTracker_0_8_18(stakedDegenLPTracker).unstakeForAccount(account, feeDegenLPTracker, _degenLPAmount, account);
@@ -233,9 +217,8 @@ contract RewardRouterV4 is IRewardRouterV4, ReentrancyGuard, Governable_0_8_18 {
         return amountOut;
     }
 
-    function unstakeAndRedeemZlpETH(uint256 _zlpAmount, uint256 _minOut, address payable _receiver, bytes[] calldata priceUpdateData) external payable nonReentrant returns (uint256) {
+    function unstakeAndRedeemZlpETH(uint256 _zlpAmount, uint256 _minOut, address payable _receiver) external nonReentrant returns (uint256) {
         require(_zlpAmount > 0, "RewardRouter: invalid _zlpAmount");
-        _updatePrice(priceUpdateData);
 
         address account = msg.sender;
         IRewardTracker_0_8_18(stakedZlpTracker).unstakeForAccount(account, feeZlpTracker, _zlpAmount, account);
@@ -530,12 +513,5 @@ contract RewardRouterV4 is IRewardRouterV4, ReentrancyGuard, Governable_0_8_18 {
         }
 
         emit UnstakeZke(_account, _token, _amount);
-    }
-
-    function _updatePrice(bytes[] calldata priceUpdateData) private returns(uint256) {
-        uint256 fee = pyth.getUpdateFee(priceUpdateData);
-        require(msg.value >= fee, "RewardRouter: use correct price update fee");
-        pyth.updatePriceFeeds{ value: fee }(priceUpdateData);
-        return msg.value - fee;
     }
 }

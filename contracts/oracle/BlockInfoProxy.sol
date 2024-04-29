@@ -20,7 +20,7 @@ contract BlockInfoProxy is IBlockInfo {
     }
 
     function setImplementation(address _blockInfoImpl) onlyOwner external {
-        require(msg.sender == owner, "BlockInfoProxy: forbidden");
+        require(msg.sender == owner, "PriceFeed: forbidden");
         blockInfoImpl = _blockInfoImpl;
     }
     /**

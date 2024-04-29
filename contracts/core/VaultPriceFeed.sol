@@ -1,15 +1,14 @@
 // SPDX-License-Identifier: MIT
-pragma experimental ABIEncoderV2;
-pragma solidity 0.6.12;
 
 import "../libraries/math/SafeMath.sol";
 
 import "./interfaces/IVaultPriceFeed.sol";
-import "../oracle/interfaces/IPythPriceFeed.sol";
+import "../oracle/interfaces/IDIAPriceFeed.sol";
 import "../oracle/interfaces/ISecondaryPriceFeed.sol";
 import "../oracle/interfaces/IBlockInfo.sol";
 import "../amm/interfaces/IPancakePair.sol";
 
+pragma solidity 0.6.12;
 
 contract VaultPriceFeed is IVaultPriceFeed {
     using SafeMath for uint256;
@@ -21,12 +20,17 @@ contract VaultPriceFeed is IVaultPriceFeed {
     uint256 public constant MAX_ADJUSTMENT_INTERVAL = 2 hours;
     uint256 public constant MAX_ADJUSTMENT_BASIS_POINTS = 20;
 
-    address public gov;
+    // Identifier of the Sequencer offline flag on the Flags contract
+    address constant private FLAG_ARBITRUM_SEQ_OFFLINE = address(bytes20(bytes32(uint256(keccak256("chainlink.flags.arbitrum-seq-offline")) - 1)));
 
-    bool public isAmmEnabled = false;
-    bool public isSecondaryPriceEnabled = false;
-    bool public useV2Pricing = true;
+    address public gov;
+    address public chainlinkFlags;
+
+    bool public isAmmEnabled = true;
+    bool public isSecondaryPriceEnabled = true;
+    bool public useV2Pricing = false;
     bool public favorPrimaryPrice = false;
+    uint256 public priceSampleSpace = 3;
     uint256 public maxStrictPriceDeviation = 0;
     address public secondaryPriceFeed;
     uint256 public spreadThresholdBasisPoints = 30;
@@ -68,13 +72,17 @@ contract VaultPriceFeed is IVaultPriceFeed {
         gov = _gov;
     }
 
+    function setChainlinkFlags(address _chainlinkFlags) external onlyGov {
+        chainlinkFlags = _chainlinkFlags;
+    }
+
     function setAdjustment(address _token, bool _isAdditive, uint256 _adjustmentBps) external override onlyGov {
         uint256 blockTimestamp = blockInfo.getBlockTimestamp();
         require(
             lastAdjustmentTimings[_token].add(MAX_ADJUSTMENT_INTERVAL) < blockTimestamp,
             "VaultPriceFeed: adjustment frequency exceeded"
         );
-        require(_adjustmentBps <= MAX_ADJUSTMENT_BASIS_POINTS, "VaultPriceFeed: invalid _adjustmentBps");
+        require(_adjustmentBps <= MAX_ADJUSTMENT_BASIS_POINTS, "invalid _adjustmentBps");
         isAdjustmentAdditive[_token] = _isAdditive;
         adjustmentBasisPoints[_token] = _adjustmentBps;
         lastAdjustmentTimings[_token] = blockTimestamp;
@@ -121,6 +129,10 @@ contract VaultPriceFeed is IVaultPriceFeed {
         favorPrimaryPrice = _favorPrimaryPrice;
     }
 
+    function setPriceSampleSpace(uint256 _priceSampleSpace) external override onlyGov {
+        require(_priceSampleSpace > 0, "VaultPriceFeed: invalid _priceSampleSpace");
+        priceSampleSpace = _priceSampleSpace;
+    }
 
     function setMaxStrictPriceDeviation(uint256 _maxStrictPriceDeviation) external override onlyGov {
         maxStrictPriceDeviation = _maxStrictPriceDeviation;
@@ -268,19 +280,20 @@ contract VaultPriceFeed is IVaultPriceFeed {
         address priceFeedAddress = priceFeeds[_token];
         require(priceFeedAddress != address(0), "VaultPriceFeed: invalid price feed");
 
-        IPythPriceFeed priceFeed = IPythPriceFeed(priceFeedAddress);
+        IDIAPriceFeed priceFeed = IDIAPriceFeed(priceFeedAddress);
 
         uint256 price = priceFeed.latestAnswer();
         require(price > 0, "VaultPriceFeed: invalid price");
-
-        return price;
+        // normalise price precision
+        uint256 _priceDecimals = priceDecimals[_token];
+        return price.mul(PRICE_PRECISION).div(10 ** _priceDecimals);
     }
 
     function getPrimaryPrice(address _token, bool _maximise) public override view returns (uint256) {
         address priceFeedAddress = priceFeeds[_token];
         require(priceFeedAddress != address(0), "VaultPriceFeed: invalid price feed");
 
-        IPythPriceFeed priceFeed = IPythPriceFeed(priceFeedAddress);
+        IDIAPriceFeed priceFeed = IDIAPriceFeed(priceFeedAddress);
 
         uint256 price = priceFeed.latestAnswer(_maximise);
         require(price > 0, "VaultPriceFeed: could not fetch price");

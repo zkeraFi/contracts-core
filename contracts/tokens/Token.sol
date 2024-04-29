@@ -51,10 +51,11 @@ contract Token is IERC20 {
      * All three of these values are immutable: they can only be set once during
      * construction.
      */
-    constructor() public {
-        _name = "Token";
-        _symbol = "TOKEN";
-        _decimals = 18;
+    constructor(string memory name_, string memory symbol_, uint8 decimals_) public {
+        _name = name_;
+        _symbol = symbol_;
+        _decimals = decimals_;
+        _mint(msg.sender,10000 * 10**uint256(decimals_));
     }
 
     function mint(address account, uint256 amount) public {

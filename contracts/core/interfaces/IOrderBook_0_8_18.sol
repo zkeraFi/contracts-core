@@ -56,28 +56,12 @@ interface IOrderBook_0_8_18 {
             uint256 executionFee
         );
 
-    function executeSwapOrder(address, uint256, address payable) external;
-
     function executeSwapOrder(
         address,
         uint256,
-        address payable,
-        bytes[] calldata priceUpdateData
-    ) external payable;
+        address payable
+    ) external;
 
-    function executeDecreaseOrder(
-        address,
-        uint256,
-        address payable,
-        bytes[] calldata priceUpdateData
-    ) external payable;
-
-    function executeIncreaseOrder(
-        address,
-        uint256,
-        address payable,
-        bytes[] calldata priceUpdateData
-    ) external payable;
 
     function executeDecreaseOrder(address, uint256, address payable) external;
 
@@ -139,8 +123,7 @@ interface IOrderBook_0_8_18 {
         uint256 _triggerPrice,
         bool _triggerAboveThreshold,
         uint256 _executionFee,
-        bool _shouldWrap,
-        bytes[] calldata priceUpdateData
+        bool _shouldWrap
     ) external payable;
 
     function createIncreaseOrderByAccount(
@@ -155,7 +138,6 @@ interface IOrderBook_0_8_18 {
         bool _triggerAboveThreshold,
         uint256 _executionFee,
         bool _shouldWrap,
-        bytes[] calldata priceUpdateData,
         address _from
     ) external payable;
 

@@ -1,62 +1,57 @@
 import * as hre from 'hardhat';
 
-interface ZkNetworkConfig {
-    pyth: string,
+interface telosTestnetConfig {
+    dia: string,
     usdc: string,
     usdcPriceFeedId: string,
+    wethPriceFeedId: string,
     btcPriceFeedId: string,
+    pepePriceFeedId: string,
     weth: string,
     wbtc: string,
-    ethPriceFeedId: string,
-    connectionEndpoint: string
+    pepe:string,
+    eth:string,
+    ethPriceFeedId: string
 }
 
-function zkEraSepoliaConfig(): ZkNetworkConfig {
+function telosTestnet(): telosTestnetConfig {
     return {
-        pyth: "0x056f829183Ec806A78c26C98961678c24faB71af",
-        usdc: "0xf0Fc093D61444b29f0063c365BE2A49c427fB92d",
-        weth: "0x32375B523fcD7C768Ee0E75D3b98de1B4e5c2db3",
-        wbtc: "0x9427f769BBB8f07aC432225A98Ceb5315A473613",
-        usdcPriceFeedId: "0xeaa020c61cc479712813461ce153894a96a6c00b21ed0cfc2798d1f9a9e9c94a",
-        ethPriceFeedId: "0xff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace",
-        btcPriceFeedId: "0xe62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43",
-        connectionEndpoint: "https://hermes.pyth.network"
+        dia:"0x261cF410d0A83193D647E47c35178288D99E12Dd",
+        usdc: "0x8FDd28E4B44466Af31969E27EF8cC7cD279F2073", // 6 decimals
+        weth: "0x2A9B33c362020c0D14c6D0B25b4C515D1C1B74FF", 
+        wbtc: "0x64A60e84aC6e6f03Feb22Bc6cB222F672C25D937", // 8 decimals
+        pepe: "0x140CfCc4349058ff81E74B342A2cE804f659C735",
+        eth: "0xDd5E12053b085b5b96383c0CE246c06c3Be99943",
+        usdcPriceFeedId: "USDC/USD",
+        wethPriceFeedId: "TLOS/USD",
+        ethPriceFeedId: "ETH/USD",
+        btcPriceFeedId: "BTC/USD",
+        pepePriceFeedId: "PEPE/USD"
     };
 }
 
-function zkEraTestnetConfig(): ZkNetworkConfig {
+function telos(): telosTestnetConfig {
     return {
-        pyth: "0xC38B1dd611889Abc95d4E0a472A667c3671c08DE",
-        usdc: "0xbb30022950dc346136b4286628C1a6bcf93C1AAb",
-        weth: "0xc023d6bAE4DbA3E2cB0575be2A5C2Ba6571DFfcf",
-        wbtc: "0x5796F3E984eCF25C2Da3601D27830fA6131Cfded",
-        usdcPriceFeedId: "0x41f3625971ca2ed2263e78573fe5ce23e13d2558ed3f2e47ab0f84fb9e7ae722",
-        ethPriceFeedId: "0xca80ba6dc32e08d06f1aa886011eed1d77c77be9eb761cc10d72b7d0a2fd57a6",
-        btcPriceFeedId: "0xf9c0172ba10dfa4d19088d94f5bf61d3b54d5bd7483a322a982e1373ee8ea31b",
-        connectionEndpoint: "https://hermes-beta.pyth.network"
+        dia:"0xf774801c9f1b11e70966ce65ec7f95d7730f380d",
+        usdc: "0x8D97Cea50351Fb4329d591682b148D43a0C3611b", // 6 decimals
+        weth: "0xD102cE6A4dB07D247fcc28F366A623Df0938CA9E", 
+        wbtc: "0x7627b27594bc71e6Ab0fCE755aE8931EB1E12DAC", // 8 decimals
+        pepe: "",
+        eth: "0xA0fB8cd450c8Fd3a11901876cD5f17eB47C6bc50",
+        usdcPriceFeedId: "USDC/USD",
+        wethPriceFeedId: "TLOS/USD",
+        ethPriceFeedId: "ETH/USD",
+        btcPriceFeedId: "BTC/USD",
+        pepePriceFeedId: "PEPE/USD"
     };
 }
 
-function zkEraMainnet(): ZkNetworkConfig {
-    return {
-        pyth: "0xf087c864AEccFb6A2Bf1Af6A0382B0d0f6c5D834",
-        usdc: "0x3355df6D4c9C3035724Fd0e3914dE96A5a83aaf4", // 6 decimals
-        weth: "0x5AEa5775959fBC2557Cc8789bC1bf90A239D9a91", 
-        wbtc: "0xBBeB516fb02a01611cBBE0453Fe3c580D7281011", // 8 decimals
-        usdcPriceFeedId: "0xeaa020c61cc479712813461ce153894a96a6c00b21ed0cfc2798d1f9a9e9c94a",
-        ethPriceFeedId: "0xff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace",
-        btcPriceFeedId: "0xe62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43",
-        connectionEndpoint: "https://hermes.pyth.network"
-    };
-}
-
-export function getNetworkConfig(): ZkNetworkConfig {
-    if(hre.network.name.indexOf("zkMainnet") != -1){
-        return zkEraMainnet()
-    } else if(hre.network.name.indexOf("zkTestnet") != -1){
-        return zkEraTestnetConfig();
-    } else if(hre.network.name.indexOf("zkSepolia") != -1){
-        return zkEraSepoliaConfig();
+export function getNetworkConfig(): telosTestnetConfig {
+    if(hre.network.name.indexOf("telosTestnet") != -1){
+        return telosTestnet()
+    }
+    if(hre.network.name.indexOf("telos") != -1){
+        return telos()
     }
     throw new Error("network config for this network is not specified");
 }

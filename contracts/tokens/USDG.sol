@@ -14,7 +14,7 @@ contract USDG is YieldToken, IUSDG {
         _;
     }
 
-    constructor(address _vault) public YieldToken("USD Gambit", "USDG", 0) {
+    constructor(address _vault) public YieldToken("USD zkEra", "USDZ", 0) {
         vaults[_vault] = true;
     }
 

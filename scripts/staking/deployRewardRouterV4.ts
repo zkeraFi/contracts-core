@@ -1,71 +1,80 @@
 import * as hre from 'hardhat';
-import { Deployer } from '@matterlabs/hardhat-zksync-deploy';
+ 
 import { getDeployerWallet } from '../shared/accounts';
 import { getProvider } from '../shared/network';
-import { deployContract, getJsonField, sendTxn } from '../shared/deploy';
+import { deployContract, deployContractV2, getJsonField, getJsonFieldV2, sendTxn } from '../shared/deploy';
 import { BonusDistributor__factory, EsZKE__factory, MintableBaseToken__factory, RewardDistributor__factory, RewardRouterV4__factory, RewardTracker__factory, Vester__factory, ZKE__factory, ZLP__factory, ZlpManager__factory } from '../../typechain';
 import { getNetworkConfig } from '../shared/zkEraConfig';
+import { DegenLP__factory } from '../../typechain';
 
 const VESTING_DURATION = 365 * 24 * 60 * 60
 
 export default async function main() {
   const provider = getProvider();
   // const [wallet, user0, user1, user2, user3] = getRichWallets(provider);
-  const deployerWallet = getDeployerWallet(provider);
-  const deployer = new Deployer(hre, deployerWallet);
+  const deployerWallet = hre.ethers.provider.getSigner(0);
+   
   const config = getNetworkConfig();
 
   const zlpAddress = await getJsonField("zlp") as string
   const zlp = ZLP__factory.connect(zlpAddress, deployerWallet);
 
-  const degenLPAddress = await getJsonField("degenLP") as string
+  const degenLPAddress = await getJsonFieldV2("degenLP") as string
   const degenLP = DegenLP__factory.connect(degenLPAddress, deployerWallet);
 
   const zlpManagerAddress = await getJsonField("zlpManager") as string
   
   const zlpManager = ZlpManager__factory.connect(zlpManagerAddress, deployerWallet);
 
-  const degenLPManagerAddress = await getJsonField("zlpManager") as string
+  const degenLPManagerAddress = await getJsonFieldV2("zlpManager") as string
   
   const degenLPManager = ZlpManager__factory.connect(degenLPManagerAddress, deployerWallet);
   
   const blockInfo = await getJsonField("blockInfoProxy") as string
 
-  const zke = await deployContract(deployer, "ZKE", [], "zke");
-  const esZke = await deployContract(deployer, "EsZKE", [], "esZke");
-  const bnZke = await deployContract(deployer, "MintableBaseToken", ["Bonus ZKE", "bnZKE", 0], "bnZke");
+  // const zke =  await deployContract( "ZKE", [], "zke");
+  const esZke =  await deployContract( "EsZKE", [], "esZke");
+  const bnZke =  await deployContract( "MintableBaseToken", ["Bonus ZKE", "bnZKE", 0], "bnZke");
   const zkeAddress = await getJsonField("zke") as string;
-  const esZkeAddress = await getJsonField("esZke") as string;
-  const bnZkeAddress = await getJsonField("bnZke") as string;
-  // const zke = ZKE__factory.connect(zkeAddress, deployerWallet);
+  // const esZkeAddress = await getJsonField("esZke") as string;
+  // const bnZkeAddress = await getJsonField("bnZke") as string;
+  const zke = ZKE__factory.connect(zkeAddress, deployerWallet);
   // const esZke = EsZKE__factory.connect(esZkeAddress, deployerWallet);
   // const bnZke = MintableBaseToken__factory.connect(bnZkeAddress, deployerWallet);
 
   await sendTxn(esZke.setInPrivateTransferMode(true), "esZke.setInPrivateTransferMode")
   await sendTxn(zlp.setInPrivateTransferMode(true), "zlp.setInPrivateTransferMode")
+  await sendTxn(degenLP.setInPrivateTransferMode(true), "degenLP.setInPrivateTransferMode")
 
-  const stakedZkeTracker = await deployContract(deployer, "RewardTracker", ["Staked ZKE", "sZKE"], "stakedZkeTracker")
-  const stakedZkeDistributor = await deployContract(deployer, "RewardDistributor", [esZke.address, stakedZkeTracker.address, blockInfo], "stakedZkeDistributor")
+
+
+
+
+
+  
+
+  const stakedZkeTracker =  await deployContract( "RewardTracker", ["Staked ZKE", "sZKE"], "stakedZkeTracker")
+  const stakedZkeDistributor =  await deployContract( "RewardDistributor", [esZke.address, stakedZkeTracker.address, blockInfo], "stakedZkeDistributor")
   await sendTxn(stakedZkeTracker.initialize([zke.address, esZke.address], stakedZkeDistributor.address), "stakedZkeTracker.initialize")
   await sendTxn(stakedZkeDistributor.updateLastDistributionTime(), "stakedZkeDistributor.updateLastDistributionTime")
 
-  const bonusZkeTracker = await deployContract(deployer, "RewardTracker", ["Staked + Bonus ZKE", "sbZKE"], "bonusZkeTracker")
-  const bonusZkeDistributor = await deployContract(deployer, "BonusDistributor", [bnZke.address, bonusZkeTracker.address, blockInfo], "bonusZkeDistributor")
+  const bonusZkeTracker =  await deployContract( "RewardTracker", ["Staked + Bonus ZKE", "sbZKE"], "bonusZkeTracker")
+  const bonusZkeDistributor =  await deployContract( "BonusDistributor", [bnZke.address, bonusZkeTracker.address, blockInfo], "bonusZkeDistributor")
   await sendTxn(bonusZkeTracker.initialize([stakedZkeTracker.address], bonusZkeDistributor.address), "bonusZkeTracker.initialize")
   await sendTxn(bonusZkeDistributor.updateLastDistributionTime(), "bonusZkeDistributor.updateLastDistributionTime")
 
-  const feeZkeTracker = await deployContract(deployer, "RewardTracker", ["Staked + Bonus + Fee ZKE", "sbfZKE"], "feeZkeTracker")
-  const feeZkeDistributor = await deployContract(deployer, "RewardDistributor", [config.weth, feeZkeTracker.address, blockInfo], "feeZkeDistributor")
+  const feeZkeTracker =  await deployContract( "RewardTracker", ["Staked + Bonus + Fee ZKE", "sbfZKE"], "feeZkeTracker")
+  const feeZkeDistributor =  await deployContract( "RewardDistributor", [config.weth, feeZkeTracker.address, blockInfo], "feeZkeDistributor")
   await sendTxn(feeZkeTracker.initialize([bonusZkeTracker.address, bnZke.address], feeZkeDistributor.address), "feeZkeTracker.initialize")
   await sendTxn(feeZkeDistributor.updateLastDistributionTime(), "feeZkeDistributor.updateLastDistributionTime")
 
-  const feeZlpTracker = await deployContract(deployer, "RewardTracker", ["Fee ZLP", "fZLP"], "feeZlpTracker")
-  const feeZlpDistributor = await deployContract(deployer, "RewardDistributor", [config.weth, feeZlpTracker.address, blockInfo], "feeZlpDistributor")
+  const feeZlpTracker =  await deployContract( "RewardTracker", ["Fee ZLP", "fZLP"], "feeZlpTracker")
+  const feeZlpDistributor =  await deployContract( "RewardDistributor", [config.weth, feeZlpTracker.address, blockInfo], "feeZlpDistributor")
   await sendTxn(feeZlpTracker.initialize([zlp.address], feeZlpDistributor.address), "feeZlpTracker.initialize")
   await sendTxn(feeZlpDistributor.updateLastDistributionTime(), "feeZlpDistributor.updateLastDistributionTime")
 
-  const stakedZlpTracker = await deployContract(deployer, "RewardTracker", ["Fee + Staked ZLP", "fsZLP"], "stakedZlpTracker")
-  const stakedZlpDistributor = await deployContract(deployer, "RewardDistributor", [esZke.address, stakedZlpTracker.address, blockInfo], "stakedZlpDistributor")
+  const stakedZlpTracker =  await deployContract( "RewardTracker", ["Fee + Staked ZLP", "fsZLP"], "stakedZlpTracker")
+  const stakedZlpDistributor =  await deployContract( "RewardDistributor", [esZke.address, stakedZlpTracker.address, blockInfo], "stakedZlpDistributor")
   await sendTxn(stakedZlpTracker.initialize([feeZlpTracker.address], stakedZlpDistributor.address), "stakedZlpTracker.initialize")
   await sendTxn(stakedZlpDistributor.updateLastDistributionTime(), "stakedZlpDistributor.updateLastDistributionTime")
 
@@ -119,31 +128,31 @@ export default async function main() {
 
 
 
-  const feeDegenLPTracker = await deployContract(deployer, "RewardTracker", ["Fee degenLP", "fDegenLP"], "feeDegenLPTracker")
-  const feeDegenLPDistributor = await deployContract(deployer, "RewardDistributor", [config.weth, feeDegenLPTracker.address, blockInfo], "feeDegenLPDistributor")
+  const feeDegenLPTracker = await deployContractV2("RewardTracker", ["Fee degenLP", "fDegenLP"], "feeDegenLPTracker")
+  const feeDegenLPDistributor = await deployContractV2("RewardDistributor", [config.weth, feeDegenLPTracker.address, blockInfo], "feeDegenLPDistributor")
   await sendTxn(feeDegenLPTracker.initialize([degenLP.address], feeDegenLPDistributor.address), "feeDegenLPTracker.initialize")
   await sendTxn(feeDegenLPDistributor.updateLastDistributionTime(), "feeDegenLPDistributor.updateLastDistributionTime")
 
-  const stakedDegenLPTracker = await deployContract(deployer, "RewardTracker", ["Fee + Staked degenLP", "fsDegenLP"], "stakedDegenLPTracker")
-  const stakedDegenLPDistributor = await deployContract(deployer, "RewardDistributor", [esZke.address, stakedDegenLPTracker.address, blockInfo], "stakedDegenLPDistributor")
+  const stakedDegenLPTracker = await deployContractV2("RewardTracker", ["Fee + Staked degenLP", "fsDegenLP"], "stakedDegenLPTracker")
+  const stakedDegenLPDistributor = await deployContractV2("RewardDistributor", [esZke.address, stakedDegenLPTracker.address, blockInfo], "stakedDegenLPDistributor")
   await sendTxn(stakedDegenLPTracker.initialize([feeDegenLPTracker.address], stakedDegenLPDistributor.address), "stakedDegenLPTracker.initialize")
   await sendTxn(stakedDegenLPDistributor.updateLastDistributionTime(), "stakedDegenLPDistributor.updateLastDistributionTime")
 
 
 
-  // const feeDegenLPTrackerAddress = await getJsonField("feeDegenLPTracker") as string;
+  // const feeDegenLPTrackerAddress = await getJsonFieldV2("feeDegenLPTracker") as string;
   // const feeDegenLPTracker = RewardTracker__factory.connect(feeDegenLPTrackerAddress, deployerWallet);
 
-  // const feeDegenLPDistributorAddress = await getJsonField("feeDegenLPDistributor") as string;
+  // const feeDegenLPDistributorAddress = await getJsonFieldV2("feeDegenLPDistributor") as string;
   // const feeDegenLPDistributor = RewardDistributor__factory.connect(feeDegenLPDistributorAddress, deployerWallet);
 
-  // const stakedDegenLPTrackerAddress = await getJsonField("stakedDegenLPTracker") as string;
+  // const stakedDegenLPTrackerAddress = await getJsonFieldV2("stakedDegenLPTracker") as string;
   // const stakedDegenLPTracker = RewardTracker__factory.connect(stakedDegenLPTrackerAddress, deployerWallet);
 
-  // const stakedDegenLPDistributorAddress = await getJsonField("stakedDegenLPDistributor") as string;
+  // const stakedDegenLPDistributorAddress = await getJsonFieldV2("stakedDegenLPDistributor") as string;
   // const stakedDegenLPDistributor = RewardDistributor__factory.connect(stakedDegenLPDistributorAddress, deployerWallet);
 
-  // const degenLPVesterAddress = await getJsonField("degenLPVester") as string;
+  // const degenLPVesterAddress = await getJsonFieldV2("degenLPVester") as string;
   // const degenLPVester = RewardTracker__factory.connect(degenLPVesterAddress, deployerWallet);
 
 
@@ -165,7 +174,7 @@ export default async function main() {
      await sendTxn(stakedDegenLPTracker.setInPrivateTransferMode(true), "stakedZlpTracker.setInPrivateTransferMode")
      await sendTxn(stakedDegenLPTracker.setInPrivateStakingMode(true), "stakedZlpTracker.setInPrivateStakingMode")
 
-  const zkeVester = await deployContract(deployer, "Vester", [
+  const zkeVester =  await deployContract( "Vester", [
     "Vested ZKE", // _name
     "vZKE", // _symbol
     VESTING_DURATION, // _vestingDuration
@@ -176,7 +185,7 @@ export default async function main() {
     blockInfo //_blockInfo
   ], "zkeVester")
 
-  const zlpVester = await deployContract(deployer, "Vester", [
+  const zlpVester =  await deployContract( "Vester", [
     "Vested ZLP", // _name
     "vZLP", // _symbol
     VESTING_DURATION, // _vestingDuration
@@ -187,7 +196,7 @@ export default async function main() {
     blockInfo
   ], "zlpVester")
 
-  const degenLPVester = await deployContract(deployer, "Vester", [
+  const degenLPVester = await deployContractV2("Vester", [
     "Vested degenLP", // _name
     "vDegenLP", // _symbol
     VESTING_DURATION, // _vestingDuration
@@ -198,7 +207,7 @@ export default async function main() {
     blockInfo
   ], "degenLPVester")
 
-  const rewardRouter = await deployContract(deployer, "RewardRouterV4", [], "rewardRouter")
+  const rewardRouter =  await deployContract( "RewardRouterV4", [], "rewardRouter")
   await sendTxn(rewardRouter.initialize(
     config.weth,
     zke.address,
@@ -217,8 +226,7 @@ export default async function main() {
     feeDegenLPTracker.address,
     stakedDegenLPTracker.address,
     degenLPManager.address,
-    degenLPVester.address,
-    config.pyth
+    degenLPVester.address
   ), "rewardRouter.initialize")
 
 

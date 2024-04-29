@@ -12,7 +12,6 @@ contract ZkeMulticall is ReentrancyGuard {
     PositionRouterV2 public positionRouter;
     OrderBookV2 public orderBook;
     uint256 public minExecutionFee;
-    bool public migrated = false;
 
     event UpdateGov(address gov);
     event UpdatePositionRouter(address positionRouter);
@@ -51,18 +50,6 @@ contract ZkeMulticall is ReentrancyGuard {
         }
 
         return results;
-    }
-
-    function migration(bytes[] calldata data) external payable onlyGov {
-        require(!migrated);
-        for (uint256 i; i < data.length; i++) {
-            (bool success, bytes memory result) = address(this).delegatecall(
-                data[i]
-            );
-
-            require(success, string(result));
-        }
-        migrated = true;
     }
 
     function setGov(address _gov) external onlyGov {
@@ -193,7 +180,6 @@ contract ZkeMulticall is ReentrancyGuard {
         bool _triggerAboveThreshold,
         uint256 _executionFee,
         bool _shouldWrap,
-        bytes[] calldata priceUpdateData,
         uint256 fee
     ) external payable {
         uint256 _value = _shouldWrap
@@ -211,7 +197,6 @@ contract ZkeMulticall is ReentrancyGuard {
             _triggerAboveThreshold,
             _executionFee,
             _shouldWrap,
-            priceUpdateData,
             msg.sender
         );
     }
@@ -253,29 +238,6 @@ contract ZkeMulticall is ReentrancyGuard {
             _triggerPrice,
             _triggerAboveThreshold,
             msg.sender
-        );
-    }
-
-    function createDecreaseOrderMigration(
-        address _indexToken,
-        uint256 _sizeDelta,
-        address _collateralToken,
-        uint256 _collateralDelta,
-        bool _isLong,
-        uint256 _triggerPrice,
-        bool _triggerAboveThreshold,
-        address _from
-    ) external payable {
-        require(!migrated);
-        orderBook.createDecreaseOrderByAccount{value: minExecutionFee}(
-            _indexToken,
-            _sizeDelta,
-            _collateralToken,
-            _collateralDelta,
-            _isLong,
-            _triggerPrice,
-            _triggerAboveThreshold,
-            _from
         );
     }
 

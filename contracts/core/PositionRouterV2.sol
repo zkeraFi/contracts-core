@@ -4,7 +4,6 @@ pragma solidity 0.8.18;
 
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@pythnetwork/pyth-sdk-solidity/IPyth.sol";
 
 import "./interfaces/IRouter_0_8_18.sol";
 import "./interfaces/IPositionRouter_0_8_18.sol";
@@ -76,7 +75,6 @@ contract PositionRouterV2 is BasePositionManager_0_8_18, IPositionRouter_0_8_18 
     mapping(bytes32 => DecreasePositionRequest) public decreasePositionRequests;
 
     IBlockInfo_0_8_18 public blockInfo;
-    IPyth pyth;
 
     mapping (address => bool) public isHandler;
 
@@ -194,7 +192,6 @@ contract PositionRouterV2 is BasePositionManager_0_8_18, IPositionRouter_0_8_18 
         bool success,
         uint256 callbackGasLimit
     );
-    event SetPyth(address pyth);
 
     modifier onlyPositionKeeper() {
         require(isPositionKeeper[msg.sender], "403");
@@ -213,8 +210,7 @@ contract PositionRouterV2 is BasePositionManager_0_8_18, IPositionRouter_0_8_18 
         address _shortsTracker,
         uint256 _depositFee,
         uint256 _minExecutionFee,
-        IBlockInfo_0_8_18 _blockInfo,
-        IPyth _pyth
+        IBlockInfo_0_8_18 _blockInfo
     )
         BasePositionManager_0_8_18(
             _vault,
@@ -226,12 +222,6 @@ contract PositionRouterV2 is BasePositionManager_0_8_18, IPositionRouter_0_8_18 
     {
         minExecutionFee = _minExecutionFee;
         blockInfo = _blockInfo;
-        pyth = _pyth;
-    }
-
-    function setPyth(IPyth _pyth) external onlyAdmin {
-        pyth = _pyth;
-        emit SetPyth(address(_pyth));
     }
 
     function setPositionKeeper(
@@ -299,10 +289,8 @@ contract PositionRouterV2 is BasePositionManager_0_8_18, IPositionRouter_0_8_18 
 
     function executeIncreasePositions(
         uint256 _endIndex,
-        address payable _executionFeeReceiver,
-        bytes[] calldata priceUpdateData
+        address payable _executionFeeReceiver
     ) external payable override onlyPositionKeeper {
-        _updatePrice(priceUpdateData);
 
         uint256 index = increasePositionRequestKeysStart;
         uint256 length = increasePositionRequestKeys.length;
@@ -350,10 +338,8 @@ contract PositionRouterV2 is BasePositionManager_0_8_18, IPositionRouter_0_8_18 
 
     function executeDecreasePositions(
         uint256 _endIndex,
-        address payable _executionFeeReceiver,
-        bytes[] calldata priceUpdateData
+        address payable _executionFeeReceiver
     ) external payable override onlyPositionKeeper {
-        _updatePrice(priceUpdateData);
 
         uint256 index = decreasePositionRequestKeysStart;
         uint256 length = decreasePositionRequestKeys.length;
@@ -590,15 +576,6 @@ contract PositionRouterV2 is BasePositionManager_0_8_18, IPositionRouter_0_8_18 
         return _executeIncreasePosition(_key, _executionFeeReceiver);
     }
 
-    function executeIncreasePosition(
-        bytes32 _key,
-        address payable _executionFeeReceiver,
-        bytes[] calldata priceUpdateData
-    ) public payable nonReentrant returns (bool) {
-        _updatePrice(priceUpdateData);
-        return _executeIncreasePosition(_key, _executionFeeReceiver);
-    }
-
     function _executeIncreasePosition(
         bytes32 _key,
         address payable _executionFeeReceiver
@@ -740,15 +717,6 @@ contract PositionRouterV2 is BasePositionManager_0_8_18, IPositionRouter_0_8_18 
         bytes32 _key,
         address payable _executionFeeReceiver
     ) public nonReentrant returns (bool) {
-        return _executeDecreasePosition(_key, _executionFeeReceiver);
-    }
-
-    function executeDecreasePosition(
-        bytes32 _key,
-        address payable _executionFeeReceiver,
-        bytes[] calldata priceUpdateData
-    ) public payable nonReentrant returns (bool) {
-        _updatePrice(priceUpdateData);
         return _executeDecreasePosition(_key, _executionFeeReceiver);
     }
 
@@ -1363,17 +1331,5 @@ contract PositionRouterV2 is BasePositionManager_0_8_18, IPositionRouter_0_8_18 
         } catch {}
 
         emit Callback(_callbackTarget, success, _gasLimit);
-    }
-
-    function _updatePrice(
-        bytes[] calldata priceUpdateData
-    ) private returns (uint256) {
-        uint256 fee = pyth.getUpdateFee(priceUpdateData);
-        require(
-            msg.value >= fee,
-            "PositionRouterV2: use correct price update fee"
-        );
-        pyth.updatePriceFeeds{value: fee}(priceUpdateData);
-        return msg.value - fee;
     }
 }

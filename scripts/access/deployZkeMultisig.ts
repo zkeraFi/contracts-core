@@ -8,8 +8,8 @@ import { deployContract } from "../shared/deploy";
 async function main() {
   const provider = getProvider();
   // const [wallet, user0, user1, user2, user3] = getRichWallets(provider);
-  const deployerWallet = getDeployerWallet(provider);
-  const deployer = new Deployer(hre, deployerWallet);
+  const deployerWallet = hre.ethers.provider.getSigner(0);
+   
 
   const zkeMultisig = await deployContract(
     deployer,

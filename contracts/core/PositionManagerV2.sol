@@ -6,7 +6,6 @@ import "./interfaces/IRouter_0_8_18.sol";
 import "./interfaces/IVault_0_8_18.sol";
 import "./interfaces/IOrderBook_0_8_18.sol";
 import "./interfaces/IShortsTracker_0_8_18.sol";
-import "@pythnetwork/pyth-sdk-solidity/IPyth.sol";
 
 import "../peripherals/interfaces/ITimelock_0_8_18.sol";
 import "./BasePositionManager_0_8_18.sol";
@@ -22,15 +21,11 @@ contract PositionManagerV2 is BasePositionManager_0_8_18 {
     mapping (address => bool) public isPartner;
     mapping (address => bool) public isLiquidator;
 
-    IPyth public pyth;
-
     event SetOrderKeeper(address indexed account, bool isActive);
     event SetLiquidator(address indexed account, bool isActive);
     event SetPartner(address account, bool isActive);
     event SetInLegacyMode(bool inLegacyMode);
     event SetShouldValidateIncreaseOrder(bool shouldValidateIncreaseOrder);
-
-    event SetPyth(address pyth);
 
     modifier onlyOrderKeeper() {
         require(isOrderKeeper[msg.sender], "PositionManager: forbidden");
@@ -53,16 +48,9 @@ contract PositionManagerV2 is BasePositionManager_0_8_18 {
         address _shortsTracker,
         address _weth,
         uint256 _depositFee,
-        address _orderBook,
-        IPyth _pyth
+        address _orderBook
     ) BasePositionManager_0_8_18(_vault, _router, _shortsTracker, _weth, _depositFee) {
         orderBook = _orderBook;
-        pyth = _pyth;
-    }
-
-    function setPyth(IPyth _pyth) external onlyAdmin {
-        pyth = _pyth;
-        emit SetPyth(address(_pyth));
     }
 
     function setOrderKeeper(address _account, bool _isActive) external onlyAdmin {
@@ -97,10 +85,8 @@ contract PositionManagerV2 is BasePositionManager_0_8_18 {
         uint256 _minOut,
         uint256 _sizeDelta,
         bool _isLong,
-        uint256 _price,
-        bytes[] calldata priceUpdateData
-    ) external payable nonReentrant onlyPartnersOrLegacyMode {
-        _updatePrice(priceUpdateData);
+        uint256 _price
+    ) external nonReentrant onlyPartnersOrLegacyMode {
         require(_path.length == 1 || _path.length == 2, "PositionManager: invalid _path.length");
 
         if (_amountIn > 0) {
@@ -124,10 +110,9 @@ contract PositionManagerV2 is BasePositionManager_0_8_18 {
         uint256 _minOut,
         uint256 _sizeDelta,
         bool _isLong,
-        uint256 _price,
-        bytes[] calldata priceUpdateData
+        uint256 _price
     ) external payable nonReentrant onlyPartnersOrLegacyMode {
-        uint256 newMsgValue = _updatePrice(priceUpdateData);
+        uint256 newMsgValue = msg.value;
         require(_path.length == 1 || _path.length == 2, "PositionManager: invalid _path.length");
         require(_path[0] == weth, "PositionManager: invalid _path");
 
@@ -154,10 +139,8 @@ contract PositionManagerV2 is BasePositionManager_0_8_18 {
         uint256 _sizeDelta,
         bool _isLong,
         address _receiver,
-        uint256 _price,
-        bytes[] calldata priceUpdateData
-    ) external payable nonReentrant onlyPartnersOrLegacyMode {
-        _updatePrice(priceUpdateData);
+        uint256 _price
+    ) external nonReentrant onlyPartnersOrLegacyMode {
         _decreasePosition(msg.sender, _collateralToken, _indexToken, _collateralDelta, _sizeDelta, _isLong, _receiver, _price);
     }
 
@@ -168,10 +151,8 @@ contract PositionManagerV2 is BasePositionManager_0_8_18 {
         uint256 _sizeDelta,
         bool _isLong,
         address payable _receiver,
-        uint256 _price,
-        bytes[] calldata priceUpdateData
-    ) external payable nonReentrant onlyPartnersOrLegacyMode {
-        _updatePrice(priceUpdateData);
+        uint256 _price
+    ) external nonReentrant onlyPartnersOrLegacyMode {
         require(_collateralToken == weth, "PositionManager: invalid _collateralToken");
 
         uint256 amountOut = _decreasePosition(msg.sender, _collateralToken, _indexToken, _collateralDelta, _sizeDelta, _isLong, address(this), _price);
@@ -186,11 +167,9 @@ contract PositionManagerV2 is BasePositionManager_0_8_18 {
         bool _isLong,
         address _receiver,
         uint256 _price,
-        uint256 _minOut,
-        bytes[] calldata priceUpdateData
-    ) external payable nonReentrant onlyPartnersOrLegacyMode {
+        uint256 _minOut
+    ) external nonReentrant onlyPartnersOrLegacyMode {
         require(_path.length == 2, "PositionManager: invalid _path.length");
-        _updatePrice(priceUpdateData);
 
         uint256 amount = _decreasePosition(msg.sender, _path[0], _indexToken, _collateralDelta, _sizeDelta, _isLong, address(this), _price);
         IERC20(_path[0]).safeTransfer(vault, amount);
@@ -205,12 +184,10 @@ contract PositionManagerV2 is BasePositionManager_0_8_18 {
         bool _isLong,
         address payable _receiver,
         uint256 _price,
-        uint256 _minOut,
-        bytes[] calldata priceUpdateData
-    ) external payable nonReentrant onlyPartnersOrLegacyMode {
+        uint256 _minOut
+    ) external nonReentrant onlyPartnersOrLegacyMode {
         require(_path.length == 2, "PositionManager: invalid _path.length");
         require(_path[_path.length - 1] == weth, "PositionManager: invalid _path");
-        _updatePrice(priceUpdateData);
 
         uint256 amount = _decreasePosition(msg.sender, _path[0], _indexToken, _collateralDelta, _sizeDelta, _isLong, address(this), _price);
         IERC20(_path[0]).safeTransfer(vault, amount);
@@ -223,10 +200,8 @@ contract PositionManagerV2 is BasePositionManager_0_8_18 {
         address _collateralToken,
         address _indexToken,
         bool _isLong,
-        address _feeReceiver,
-        bytes[] calldata priceUpdateData
-    ) external payable nonReentrant onlyLiquidator {
-        _updatePrice(priceUpdateData);
+        address _feeReceiver
+    ) external nonReentrant onlyLiquidator {
         address _vault = vault;
         address timelock = IVault_0_8_18(_vault).gov();
         (uint256 size, , , , , , , ) = IVault_0_8_18(vault).getPosition(_account, _collateralToken, _indexToken, _isLong);
@@ -240,13 +215,11 @@ contract PositionManagerV2 is BasePositionManager_0_8_18 {
         ITimelock_0_8_18(timelock).disableLeverage(_vault);
     }
 
-    function executeSwapOrder(address _account, uint256 _orderIndex, address payable _feeReceiver, bytes[] calldata priceUpdateData) external payable onlyOrderKeeper {
-        _updatePrice(priceUpdateData);
+    function executeSwapOrder(address _account, uint256 _orderIndex, address payable _feeReceiver) external onlyOrderKeeper {
         IOrderBook_0_8_18(orderBook).executeSwapOrder(_account, _orderIndex, _feeReceiver);
     }
 
-    function executeIncreaseOrder(address _account, uint256 _orderIndex, address payable _feeReceiver, bytes[] calldata priceUpdateData) external payable onlyOrderKeeper {
-        _updatePrice(priceUpdateData);
+    function executeIncreaseOrder(address _account, uint256 _orderIndex, address payable _feeReceiver) external onlyOrderKeeper {
         _validateIncreaseOrder(_account, _orderIndex);
 
         address _vault = vault;
@@ -275,8 +248,7 @@ contract PositionManagerV2 is BasePositionManager_0_8_18 {
         _emitIncreasePositionReferral(_account, sizeDelta);
     }
 
-    function executeDecreaseOrder(address _account, uint256 _orderIndex, address payable _feeReceiver, bytes[] calldata priceUpdateData) external payable onlyOrderKeeper {
-        _updatePrice(priceUpdateData);
+    function executeDecreaseOrder(address _account, uint256 _orderIndex, address payable _feeReceiver) external onlyOrderKeeper {
         address _vault = vault;
         address timelock = IVault_0_8_18(_vault).gov();
         (
@@ -339,12 +311,5 @@ contract PositionManagerV2 is BasePositionManager_0_8_18 {
         uint256 nextLeverageWithBuffer = nextSize * (BASIS_POINTS_DIVISOR + increasePositionBufferBps) / nextCollateral;
 
         require(nextLeverageWithBuffer >= prevLeverage, "PositionManager: long leverage decrease");
-    }
-
-    function _updatePrice(bytes[] calldata priceUpdateData) private returns(uint256) {
-        uint256 fee = pyth.getUpdateFee(priceUpdateData);
-        require(msg.value >= fee, "PositionManager:: use correct price update fee");
-        pyth.updatePriceFeeds{ value: fee }(priceUpdateData);
-        return msg.value - fee;
     }
 }

@@ -1,7 +1,7 @@
 import * as hre from 'hardhat';
 import { getDeployerWallet } from '../shared/accounts';
 import { getProvider } from '../shared/network';
-import { deployContract, getJsonField, sendTxn } from '../shared/deploy';
+import { deployContractV2 as deployContract, getJsonFieldV2 as getJsonField, sendTxn } from '../shared/deploy';
 import { 
    Router__factory,
     ShortsTracker__factory, 
@@ -10,13 +10,12 @@ import {
    getNetworkConfig } from '../shared/zkEraConfig';
 import { KEEPER_WALLET, KEEPER_WALLET2 } from '../shared/constants';
 import { ethers } from 'hardhat';
-import { Deployer } from '@matterlabs/hardhat-zksync-deploy';
 
 export default async function main() {
   const provider = getProvider();
   // const [wallet, user0, user1, user2, user3] = getRichWallets(provider);
-  const deployerWallet = getDeployerWallet(provider);
-  const deployer = new Deployer(hre, deployerWallet);
+  const deployerWallet = hre.ethers.provider.getSigner(0);
+   
 
   const config = getNetworkConfig();
   const routerAddress = await getJsonField("router") as string;
@@ -32,17 +31,20 @@ export default async function main() {
   const depositFee = "30" // 0.3%
   const minExecutionFee = ethers.utils.parseEther("0.0009"); // ~$2
 
-  // await deployContract(deployer, "PositionUtils_0_8_18", [], "PositionUtils_0_8_18");
+  //  await deployContract( "PositionUtils_0_8_18", [], "PositionUtils_0_8_18");
 
-
+// return
   //%%%%%%%%%%%%%%%%%%%%
   const referralStorageAddress = await getJsonField("referralStorage") as string;
   const referralStorage = ReferralStorage__factory.connect(referralStorageAddress, deployerWallet);
-  // const referralStorage = await deployContract(deployer, "ReferralStorage", [], "referralStorage");
-  const positionRouterArgs = [vaultAddress, routerAddress, config.weth, shortsTrackerAddress, depositFee, minExecutionFee, blockInfoProxyAddress, config.pyth]
+  // const referralStorage =  await deployContract( "ReferralStorage", [], "referralStorage");
+  const positionRouterArgs = [vaultAddress, routerAddress, config.weth, shortsTrackerContract.address, depositFee, minExecutionFee, blockInfoProxyAddress]
   // const positionRouterAddress = await getJsonField("positionRouterV2") as string;
   // const positionRouter = PositionRouterV2__factory.connect(positionRouterAddress, deployerWallet);
-  const positionRouter = await deployContract(deployer, "PositionRouterV2", positionRouterArgs, "positionRouterV2");
+  const positionRouter =  await deployContract( "PositionRouterV2", positionRouterArgs, "positionRouterV2", true, {
+    libraries: {
+      PositionUtils_0_8_18: "0x8EE8B0695b66EcF9a286fFc896B53AaE70d4192B"
+    }});
 
     
     await sendTxn(positionRouter.setReferralStorage(referralStorage.address), "positionRouter.setReferralStorage")
@@ -59,7 +61,6 @@ export default async function main() {
     await sendTxn(positionRouter.setDelayValues(0, 180, 30 * 60), "positionRouter.setDelayValues")
     await sendTxn(timelockContract.setContractHandler(positionRouter.address, true), "timelock.setContractHandler(positionRouter)")
     await sendTxn(positionRouter.setPositionKeeper(KEEPER_WALLET, true), "positionRouter.setPositionKeeper(KEEPER_WALLET, true)")
-    await sendTxn(positionRouter.setPositionKeeper(KEEPER_WALLET2, true), "positionRouter.setPositionKeeper(KEEPER_WALLET, true)")
     //%%%%%%%%%%%%%%%%%%%%
 }
 
